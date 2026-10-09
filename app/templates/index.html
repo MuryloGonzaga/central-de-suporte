@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-layout">
+        <!-- Sidebar de Navegação -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <div class="brand-logo">
+                    <i class="fa-solid fa-satellite-dish"></i>
+                </div>
+                <div class="brand-info">
+                    <h2>Central de Suporte</h2>
+                    <span>Rastreamento & WebRota</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-tab="tab-placa">
+                    <i class="fa-solid fa-car-side"></i>
+                    <span>Consulta Placa (AcheCar)</span>
+                </button>
+                <button class="nav-item" data-tab="tab-veiculo">
+                    <i class="fa-solid fa-truck-pickup"></i>
+                    <span>Veículo WebRota</span>
+                </button>
+                <button class="nav-item" data-tab="tab-local">
+                    <i class="fa-solid fa-map-location-dot"></i>
+                    <span>Local de Instalação</span>
+                </button>
+                <button class="nav-item" data-tab="tab-ranking">
+                    <i class="fa-solid fa-trophy"></i>
+                    <span>Rankings de OS</span>
+                </button>
+                <button class="nav-item" data-tab="tab-cabos">
+                    <i class="fa-solid fa-plug"></i>
+                    <span>Guia de Cabos</span>
+                </button>
+                <button class="nav-item" data-tab="tab-leds">
+                    <i class="fa-solid fa-lightbulb"></i>
+                    <span>Diagnóstico de LEDs</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator-box" id="webrota-status-badge">
+                    <div class="status-dot warning"></div>
+                    <div class="status-info">
+                        <strong>WebRota</strong>
+                        <span id="webrota-status-text">Verificando...</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Conteúdo Principal -->
+        <main class="main-content">
+            <!-- Topbar Mobile & Global Info -->
+            <header class="topbar">
+                <button class="mobile-toggle" id="mobile-toggle">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <div class="topbar-title">
+                    <h1 id="page-title">Consulta de Placa (Base Pública AcheCar)</h1>
+                </div>
+                <div class="topbar-actions">
+                    <button class="btn-icon" id="btn-refresh-status" title="Recarregar Status da Conexão WebRota">
+                        <i class="fa-solid fa-rotate"></i>
+                    </button>
+                    <a href="/docs" target="_blank" class="btn-api-docs" title="Ver Documentação da API Swagger">
+                        <i class="fa-solid fa-code"></i>
+                        <span>API Docs</span>
+                    </a>
+                </div>
+            </header>
+
+            <div class="tab-container">
+
+                <!-- TAB 1: CONSULTA PLACA (ACHECAR) -->
+                <section class="tab-pane active" id="tab-placa">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-magnifying-glass"></i> Consulta Pública de Veículos</h3>
+                                <p class="card-subtitle">Busca dados completos (Marca, Modelo, Ano, Cor, Tipo, Combustível, Município/UF) na base pública AcheCar. Suporta busca individual ou em massa.</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="input-placas-achecar">Digite ou Cole as Placas:</label>
+                                <textarea id="input-placas-achecar" rows="4" placeholder="Exemplo:&#10;ABC1D23&#10;XYZ-9876&#10;ou separe por espaços/vírgulas"></textarea>
+                                <small class="form-hint">Dica: Você pode colar até dezenas de placas de uma vez só (uma por linha).</small>
+                            </div>
+
+                            <div class="form-actions">
+                                <div class="checkbox-group">
+                                    <input type="checkbox" id="check-intervalo-achecar" checked>
+                                    <label for="check-intervalo-achecar">Intervalo suave contra bloqueios da API pública (~3s por placa)</label>
+                                </div>
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary" onclick="limparCampo('input-placas-achecar', 'resultado-achecar')">
+                                        <i class="fa-solid fa-eraser"></i> Limpar
+                                    </button>
+                                    <button class="btn btn-primary" id="btn-consultar-achecar" onclick="consultarAcheCar()">
+                                        <i class="fa-solid fa-search"></i> Consultar Placas
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resultados AcheCar -->
+                    <div class="card result-card" id="resultado-achecar" style="display: none;">
+                        <div class="card-header flex-between">
+                            <h4>Resultados da Consulta (<span id="count-achecar">0</span>)</h4>
+                            <div class="actions-header">
+                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-achecar')">
+                                    <i class="fa-solid fa-copy"></i> Copiar Tudo
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-achecar', 'consulta_placas_achecar.csv')">
+                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body no-padding table-responsive">
+                            <table class="data-table" id="tabela-achecar">
+                                <thead>
+                                    <tr>
+                                        <th>Placa</th>
+                                        <th>Marca / Modelo</th>
+                                        <th>Ano Fab / Modelo</th>
+                                        <th>Cor</th>
+                                        <th>Tipo / Combustível</th>
+                                        <th>Município - UF</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-achecar">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 2: VEÍCULO WEBROTA -->
+                <section class="tab-pane" id="tab-veiculo">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-truck-pickup"></i> Consulta de Veículo no Cadastro WebRota</h3>
+                                <p class="card-subtitle">Busca a Marca e o Modelo cadastrados diretamente no sistema WebRota.</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="input-placas-webrota">Placas dos Veículos:</label>
+                                <textarea id="input-placas-webrota" rows="4" placeholder="Exemplo:&#10;ABC1D23&#10;XYZ9876"></textarea>
+                            </div>
+                            <div class="form-actions right">
+                                <button class="btn btn-secondary" onclick="limparCampo('input-placas-webrota', 'resultado-webrota')">
+                                    <i class="fa-solid fa-eraser"></i> Limpar
+                                </button>
+                                <button class="btn btn-primary" id="btn-consultar-webrota" onclick="consultarVeiculosWebrota()">
+                                    <i class="fa-solid fa-search"></i> Consultar no WebRota
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resultados WebRota -->
+                    <div class="card result-card" id="resultado-webrota" style="display: none;">
+                        <div class="card-header flex-between">
+                            <h4>Veículos Localizados (<span id="count-webrota">0</span>)</h4>
+                            <div class="actions-header">
+                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-webrota')">
+                                    <i class="fa-solid fa-copy"></i> Copiar
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-webrota', 'veiculos_webrota.csv')">
+                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body no-padding table-responsive">
+                            <table class="data-table" id="tabela-webrota">
+                                <thead>
+                                    <tr>
+                                        <th>Placa</th>
+                                        <th>Marca</th>
+                                        <th>Modelo</th>
+                                        <th>Situação</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-webrota">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 3: LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO) -->
+                <section class="tab-pane" id="tab-local">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-map-location-dot"></i> Rastrear Local de Instalação da Última OS</h3>
+                                <p class="card-subtitle">Localiza o dispositivo/rastreador e verifica na última Ordem de Serviço executada (Status E ou F) onde o equipamento foi instalado no veículo ou máquina.</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="input-locais">Placas ou Identificadores de Máquinas:</label>
+                                <textarea id="input-locais" rows="4" placeholder="Cole as placas ou códigos de máquinas (uma por linha)&#10;Ex: ABC1D23&#10;TRATOR-02"></textarea>
+                            </div>
+                            <div class="form-actions right">
+                                <button class="btn btn-secondary" onclick="limparCampo('input-locais', 'resultado-local')">
+                                    <i class="fa-solid fa-eraser"></i> Limpar
+                                </button>
+                                <button class="btn btn-primary" id="btn-consultar-local" onclick="consultarLocalInstalacao()">
+                                    <i class="fa-solid fa-location-crosshairs"></i> Buscar Locais de Instalação
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resultados Local -->
+                    <div class="card result-card" id="resultado-local" style="display: none;">
+                        <div class="card-header flex-between">
+                            <h4>Locais de Instalação Encontrados</h4>
+                            <div class="actions-header">
+                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-local')">
+                                    <i class="fa-solid fa-copy"></i> Copiar Tudo
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-local', 'locais_instalacao.csv')">
+                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body no-padding table-responsive">
+                            <table class="data-table" id="tabela-local">
+                                <thead>
+                                    <tr>
+                                        <th>Identificador / Placa</th>
+                                        <th>Serial do Rastreador</th>
+                                        <th>Local de Instalação (Última OS)</th>
+                                        <th>Data da Execução</th>
+                                        <th>Status OS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-local">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 4: RANKINGS DE OS -->
+                <section class="tab-pane" id="tab-ranking">
+                    <div class="rankings-grid">
+                        <!-- Ranking Diário -->
+                        <div class="card ranking-card">
+                            <div class="card-header flex-between">
+                                <div>
+                                    <h3><i class="fa-solid fa-medal text-gold"></i> Ranking de Hoje</h3>
+                                    <p class="card-subtitle">Ordens de serviço finalizadas no dia de hoje</p>
+                                </div>
+                                <div class="ranking-filter">
+                                    <input type="date" id="data-filtro-ranking" class="date-input">
+                                    <button class="btn btn-sm btn-secondary" onclick="carregarRankingDiario()">
+                                        <i class="fa-solid fa-arrows-rotate"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-summary" id="stats-diario">
+                                    <div class="stat-box">
+                                        <span class="stat-label">Total de OS no Dia</span>
+                                        <span class="stat-value" id="total-os-diario">--</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">Data de Consulta</span>
+                                        <span class="stat-value text-small" id="data-label-diario">--</span>
+                                    </div>
+                                </div>
+
+                                <div class="ranking-list" id="lista-ranking-diario">
+                                    <div class="loading-state">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Carregando ranking...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Ranking Mensal -->
+                        <div class="card ranking-card">
+                            <div class="card-header flex-between">
+                                <div>
+                                    <h3><i class="fa-solid fa-calendar-check text-primary"></i> Ranking Mensal de Técnicos</h3>
+                                    <p class="card-subtitle">Comparativo oficial de execuções (Túlio x Kaio)</p>
+                                </div>
+                                <button class="btn btn-sm btn-secondary" onclick="carregarRankingMensal()">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <div class="stats-summary" id="stats-mensal">
+                                    <div class="stat-box">
+                                        <span class="stat-label">Período Avaliado</span>
+                                        <span class="stat-value text-small" id="periodo-label-mensal">--</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">Total Executado</span>
+                                        <span class="stat-value" id="total-os-mensal">--</span>
+                                    </div>
+                                </div>
+
+                                <div class="ranking-list" id="lista-ranking-mensal">
+                                    <div class="loading-state">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> Carregando comparativo mensal...
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 5: GUIA DE CABOS -->
+                <section class="tab-pane" id="tab-cabos">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-plug text-primary"></i> Guia Rápido de Instalação - Padrão de Cores dos Cabos</h3>
+                                <p class="card-subtitle">Consulte visualmente o padrão elétrico e ligação dos chicotes 1 a 5 para instalação dos rastreadores.</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="chicotes-grid">
+                                {% for chicote in cabos %}
+                                <div class="chicote-card">
+                                    <div class="chicote-header">
+                                        <h4><i class="fa-solid fa-bolt"></i> {{ chicote.titulo }}</h4>
+                                    </div>
+                                    <div class="chicote-body">
+                                        {% for fio in chicote.fios %}
+                                        <div class="fio-item">
+                                            <div class="fio-indicador" style="background-color: {{ fio.cor_hex }}; {% if fio.texto_escuro %}border: 1px solid #94A3B8;{% endif %}"></div>
+                                            <div class="fio-info">
+                                                <strong class="fio-cor">{{ fio.cor_nome }}</strong>
+                                                <span class="fio-funcao badge-tipo-{{ fio.tipo }}">{{ fio.funcao }}</span>
+                                            </div>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 6: DIAGNÓSTICO DE LEDS -->
+                <section class="tab-pane" id="tab-leds">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-lightbulb text-warning"></i> Guia de Diagnóstico de LEDs - Suntech</h3>
+                                <p class="card-subtitle">Identifique rapidamente o comportamento dos LEDs Azul (GPRS/Comunicação) e Vermelho (GPS).</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="leds-container">
+                                <!-- LED Azul -->
+                                <div class="led-card">
+                                    <div class="led-card-header bg-led-blue">
+                                        <div class="led-bulb led-blue-pulse"></div>
+                                        <div>
+                                            <h4>LED AZUL</h4>
+                                            <span>GPRS & Comunicação de Rede</span>
+                                        </div>
+                                    </div>
+                                    <div class="led-card-body">
+                                        <div class="led-items-list">
+                                            {% for item in leds.azul.itens %}
+                                            <div class="led-item gravidade-{{ item.gravidade }}">
+                                                <div class="led-count">
+                                                    <strong>{{ item.piscadas }}</strong>
+                                                    <span>{{ "Piscada" if item.piscadas == 1 else "Piscadas" }}</span>
+                                                </div>
+                                                <div class="led-details">
+                                                    <h5>{{ item.titulo }}</h5>
+                                                    <p>{{ item.descricao }}</p>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- LED Vermelho -->
+                                <div class="led-card">
+                                    <div class="led-card-header bg-led-red">
+                                        <div class="led-bulb led-red-pulse"></div>
+                                        <div>
+                                            <h4>LED VERMELHO</h4>
+                                            <span>GPS & Sinal de Satélite</span>
+                                        </div>
+                                    </div>
+                                    <div class="led-card-body">
+                                        <div class="led-items-list">
+                                            {% for item in leds.vermelho.itens %}
+                                            <div class="led-item gravidade-{{ item.gravidade }}">
+                                                <div class="led-count">
+                                                    <strong>{{ item.piscadas }}</strong>
+                                                    <span>{{ "Piscada" if item.piscadas == 1 else "Piscadas" }}</span>
+                                                </div>
+                                                <div class="led-details">
+                                                    <h5>{{ item.titulo }}</h5>
+                                                    <p>{{ item.descricao }}</p>
+                                                </div>
+                                            </div>
+                                            {% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Scripts -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
+

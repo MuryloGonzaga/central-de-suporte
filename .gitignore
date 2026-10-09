@@ -1,0 +1,20 @@
+# Variáveis de ambiente com senhas e credenciais reais
+.env
+
+# Ambientes virtuais
+venv/
+.venv/
+env/
+
+# Caches do Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs
+*.log
+
+# Arquivos de IDE
+.vscode/
+.idea/
+
