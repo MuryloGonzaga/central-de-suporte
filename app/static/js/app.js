@@ -584,19 +584,19 @@ const INITIAL_WELCOME_HTML = `
         </div>
         <div class="bubble-content">
             <div class="bubble-header">
-                <strong>Assistente Suntech IA</strong>
+                <strong>Assistente Técnico IA</strong>
                 <span class="meta-tag">Rede Neural Multicamadas</span>
             </div>
             <div class="bubble-text">
-                <p>Olá! Sou a inteligência artificial treinada nos manuais técnicos oficiais dos aparelhos <strong>Suntech</strong>. Você pode digitar sua dúvida em <strong>linguagem informal</strong> ou técnica, como se estivesse conversando com outro instalador.</p>
-                <p style="margin-top: 8px;">Consigo responder sobre:</p>
+                <p>Olá! Sou a inteligência artificial treinada nos manuais técnicos oficiais dos aparelhos <strong>Suntech e Queclink</strong>. Você pode digitar sua dúvida em <strong>linguagem informal</strong> ou técnica, como se estivesse conversando com outro instalador.</p>
+                <p style="margin-top: 8px;">Consigo responder de forma direta e personalizada sobre:</p>
                 <ul style="margin: 8px 0 12px 20px; font-size: 13.5px; color: var(--text-secondary);">
-                    <li><strong>Cores e funções de fios</strong> dos chicotes principais e seriais.</li>
+                    <li><strong>Cores e funções de fios</strong> (Suntech e Queclink GV50CG).</li>
+                    <li><strong>Esquemas de bloqueio com relé</strong> (incluindo diodo 1N4004 no GV50CG).</li>
                     <li><strong>Procedimentos de calibração DPA</strong> (por ignição ou comando).</li>
-                    <li><strong>Esquemas elétricos</strong> de corte na bomba de combustível com relé de 5 pinos.</li>
-                    <li><strong>Diagnóstico de LEDs</strong> (piscadas do LED vermelho GPS e azul GPRS).</li>
-                    <li><strong>Diferenças técnicas</strong> entre modelos (ST310U, UC, ULC, ST340UR, ST8300, etc.).</li>
-                    <li><strong>Jornada de trabalho, modo idle, comandos e Synctrak</strong>.</li>
+                    <li><strong>Diagnóstico de LEDs</strong> (Suntech GPS/GPRS e Queclink Celular/GNSS).</li>
+                    <li><strong>Posicionamento de antena</strong> (THIS SIDE TOWARDS SKY no GV50CG).</li>
+                    <li><strong>Diferenças técnicas, senhas do Synctrak e micro-SIM</strong>.</li>
                 </ul>
             </div>
         </div>
@@ -605,6 +605,8 @@ const INITIAL_WELCOME_HTML = `
 
 const PROMPT_CATEGORIES_DATA = {
     'frequentes': [
+        'Qual o fio pós-chave do Queclink GV50CG?',
+        'Como ligar o relé com diodo no Queclink GV50CG?',
         'Qual a cor do fio pós-chave no ST340UR?',
         'Como calibrar o DPA por ignição no ST8300?',
         'LED vermelho piscando 4 vezes o que significa?',
@@ -613,7 +615,18 @@ const PROMPT_CATEGORIES_DATA = {
         'Qual a senha padrão para conectar no Synctrak?',
         'O ST340UR aguenta água e chuva?'
     ],
+    'gv50cg': [
+        'Qual o fio de pós-chave do Queclink GV50CG?',
+        'Como ligar o relé com diodo 1N4004 no GV50CG?',
+        'Chicote completo do Queclink GV50CG 5 pinos',
+        'O que significa o LED verde piscando rápido no GV50CG?',
+        'O que significa o LED azul GNSS no GV50CG?',
+        'Orientação da antena THIS SIDE TOWARDS SKY no GV50CG',
+        'Tensão de alimentação do GV50CG 9V a 90V',
+        'Como colocar o chip Micro-SIM e ligar a bateria no GV50CG?'
+    ],
     'fios': [
+        'Chicote do Queclink GV50CG 5 pinos',
         'Chicote do ST340UR pinagem e cores',
         'Qual fio é a ignição no ST8300?',
         'Para que serve o fio branco no ST310?',
@@ -629,12 +642,14 @@ const PROMPT_CATEGORIES_DATA = {
         'Calibração DPA por ignição no ST8300'
     ],
     'rele': [
+        'Como ligar o relé com diodo 1N4004 no Queclink GV50CG?',
         'Como ligar relé de 5 pinos na bomba',
         'Onde ligar os pinos 85 e 86 do relé de bloqueio?',
         'Qual a saída do rastreador para bloqueio?',
         'Como ligar sirene ou buzzer no rastreador?'
     ],
     'leds': [
+        'O que significa o LED verde piscando rápido no GV50CG?',
         'LED vermelho piscando 4 vezes (antena/chipset)',
         'LED vermelho piscando 2 vezes (sem sinal GPS)',
         'LED azul com 2 piscadas (erro no servidor)',
@@ -853,7 +868,7 @@ function appendTypingIndicator() {
         </div>
         <div class="bubble-content">
             <div class="bubble-header">
-                <strong>Assistente Suntech IA</strong>
+                <strong>Assistente Técnico IA</strong>
                 <span class="meta-tag">Processando na Rede Neural...</span>
             </div>
             <div class="bubble-text" style="padding: 12px 18px;">
@@ -922,7 +937,7 @@ function appendBotMessage(data) {
         </div>
         <div class="bubble-content">
             <div class="bubble-header">
-                <strong>Assistente Suntech IA</strong>
+                <strong>Assistente Técnico IA</strong>
             </div>
 
             <div class="meta-badges-row">
@@ -969,7 +984,7 @@ function appendErrorMessage(msg) {
         </div>
         <div class="bubble-content">
             <div class="bubble-header">
-                <strong>Assistente Suntech IA</strong>
+                <strong>Assistente Técnico IA</strong>
                 <span class="meta-tag" style="background: rgba(239, 68, 68, 0.15); color: #F87171;">Aviso</span>
             </div>
             <div class="bubble-text" style="border-color: rgba(239, 68, 68, 0.4);">

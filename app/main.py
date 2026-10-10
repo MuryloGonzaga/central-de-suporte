@@ -260,6 +260,7 @@ async def chat_status_rede_neural():
         "intencoes": INTENTS_LIST,
         "total_chunks_conhecimento": len(KNOWLEDGE_CHUNKS),
         "aparelhos_cobertos": [
+            "Queclink GV50CG",
             "ST4305", "ST8300", "ST8300R", "ST8300H",
             "ST340UR",
             "ST310U", "ST310UC", "ST310UC2", "ST310ULC",

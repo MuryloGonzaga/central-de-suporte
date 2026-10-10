@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """
-Motor Neural de Compreensão e Atendimento dos Manuais Suntech
+Motor Neural de Compreensão e Atendimento dos Manuais Suntech e Queclink
 Implementa:
 - Normalização Semântica Canônica e Expansão de Sinônimos
 - Invariância à Ordem das Palavras (Bag-of-Canonical-Tokens + Shuffled Augmentation)
 - Rede Neural Multicamadas (Multi-Layer Perceptron - MLP) para classificação de intenção
 - Mapeamento Denso de Espaço Semântico Latente (LSA / SVD)
-- Detector Neural de Aparelhos (ST4305, ST8300, ST8300R/H, ST340UR, Linha ST310, ST8310UM, ST8210)
+- Detector Neural de Aparelhos (Suntech ST4305, ST8300, ST8300R/H, ST340UR, ST310, ST8310UM, ST8210 e Queclink GV50CG)
 - Ranqueador Híbrido Neural (Similaridade Cosseno + Sobreposição Canônica Jaccard)
-- Sintetizador Especialista com Resposta Direta Imediata e Referências Oficiais
+- Sintetizador Especialista com Respostas Personalizadas, Concisas e Diretas
 """
 
 import os
@@ -67,6 +67,10 @@ SYNONYMS_CANONICAL: Dict[str, str] = {
     "corte": "bloqueio",
     "cortar": "bloqueio",
     "imobilizador": "bloqueio",
+    "diodo 1n4004": "diodo_1n4004",
+    "1n4004": "diodo_1n4004",
+    "diodo": "diodo_1n4004",
+    "roda livre": "diodo_1n4004",
 
     # DPA e Condução
     "dpa": "calibrar_dpa",
@@ -162,6 +166,16 @@ SYNONYMS_CANONICAL: Dict[str, str] = {
     "circular": "cerca_circular",
 
     # Modelos de Aparelho
+    "queclink": "mod_gv50cg",
+    "gv50cg": "mod_gv50cg",
+    "gv50": "mod_gv50cg",
+    "gv 50": "mod_gv50cg",
+    "gv-50": "mod_gv50cg",
+    "towards sky": "antena_sky",
+    "this side towards sky": "antena_sky",
+    "power switch": "chave_bateria",
+    "micro sim": "micro_sim",
+    "micro-sim": "micro_sim",
     "st340ur": "mod_st340ur",
     "st340": "mod_st340ur",
     "st4305": "mod_st4305",
@@ -193,7 +207,6 @@ def normalizar_texto(texto: str) -> str:
 def extrair_tokens_canonicos(texto: str) -> List[str]:
     """Extrai conjunto ordenado de tokens canônicos (Invariante à ordem da frase)"""
     texto_norm = normalizar_texto(texto)
-    # Substitui expressões compostas em ordem decrescente de tamanho
     for k, v in sorted(SYNONYMS_CANONICAL.items(), key=lambda x: len(x[0]), reverse=True):
         texto_norm = re.sub(r'\b' + re.escape(k) + r'\b', v, texto_norm)
     tokens = {t for t in texto_norm.split() if len(t) > 1 and t not in STOPWORDS_BR}
@@ -204,8 +217,6 @@ def gerar_representacao_invariante(texto: str) -> str:
     """
     Gera representação dual:
     Frase normalizada + Coleção ordenada de tokens canônicos únicos.
-    Garante que 'st340ur pos chave fio cor' e 'qual a cor do fio pos chave no st340ur'
-    gerem representações semânticas fortemente alinhadas na Rede Neural.
     """
     norm = normalizar_texto(texto)
     canon_tokens = extrair_tokens_canonicos(texto)
@@ -235,6 +246,14 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("fio cor ignicao st340ur", "fios_chicote"),
     ("ignicao pos chave qual fio st8300", "fios_chicote"),
     ("cor do fio de corte bloqueio saida", "fios_chicote"),
+    ("qual a cor do fio de ignicao no queclink gv50cg", "fios_chicote"),
+    ("onde ligo o pos chave no gv50cg", "fios_chicote"),
+    ("cores do chicote do queclink gv50cg", "fios_chicote"),
+    ("pinagem do chicote de 5 vias gv50cg", "fios_chicote"),
+    ("qual a funcao do fio laranja no gv50cg", "fios_chicote"),
+    ("fio marrom gv50cg saida de corte", "fios_chicote"),
+    ("gv50cg pos chave fio cor", "fios_chicote"),
+    ("fio branco ignicao gv50cg", "fios_chicote"),
 
     # Intenção: calibracao_dpa
     ("como calibrar o dpa", "calibracao_dpa"),
@@ -266,6 +285,12 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("4 piscadas led vermelho gps erro antena", "leds_diagnostico"),
     ("led azul pisca 2 vezes erro servidor", "leds_diagnostico"),
     ("piscando 7 vezes led azul chip sim", "leds_diagnostico"),
+    ("led verde piscando rapido gv50cg", "leds_diagnostico"),
+    ("led verde piscando lento queclink gv50cg", "leds_diagnostico"),
+    ("led verde fixo gv50cg sim pin bloqueado", "leds_diagnostico"),
+    ("led azul gv50cg buscando gnss gps", "leds_diagnostico"),
+    ("led azul fixo gv50cg fix gps ok", "leds_diagnostico"),
+    ("diagnostico dos leds do queclink gv50cg", "leds_diagnostico"),
 
     # Intenção: instalacao_eletrica
     ("como instalar o rastreador no carro", "instalacao_eletrica"),
@@ -278,6 +303,9 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("onde achar o terra gnd na lataria", "instalacao_eletrica"),
     ("antena virada para cima this side up", "instalacao_eletrica"),
     ("curto circuito protecao de 5 amperes", "instalacao_eletrica"),
+    ("posicionamento da antena do queclink gv50cg", "instalacao_eletrica"),
+    ("this side towards sky gv50cg virado para cima", "instalacao_eletrica"),
+    ("como posicionar o queclink gv50cg no veiculo", "instalacao_eletrica"),
 
     # Intenção: bloqueio_rele
     ("como ligar o rele de 5 pinos", "bloqueio_rele"),
@@ -290,6 +318,11 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("esquema de ligacao de sirene buzzer", "bloqueio_rele"),
     ("5 pinos rele ligar corte bomba", "bloqueio_rele"),
     ("bomba corte pino 30 87a rele", "bloqueio_rele"),
+    ("como ligar o rele de bloqueio no queclink gv50cg", "bloqueio_rele"),
+    ("qual diodo usar no rele do gv50cg 1n4004", "bloqueio_rele"),
+    ("fio marrom corte bomba rele gv50cg", "bloqueio_rele"),
+    ("esquema de bloqueio do gv50cg com diodo 1n4004", "bloqueio_rele"),
+    ("pino 85 86 diodo rele queclink gv50cg", "bloqueio_rele"),
 
     # Intenção: antifurto
     ("como funciona o antifurto por ignicao", "antifurto"),
@@ -298,85 +331,57 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("tempo para acionar o botao antifurto 1050", "antifurto"),
     ("quanto tempo o antifurto espera antes de bloquear", "antifurto"),
     ("como desativar o antifurto segurando 10 segundos", "antifurto"),
-    ("bipe da sirene ao ativar antifurto", "antifurto"),
 
     # Intenção: jornada_trabalho
-    ("como configurar a jornada de trabalho", "jornada_trabalho"),
-    ("horario de jornada fuso utc", "jornada_trabalho"),
-    ("como liberar hora extra no st8300", "jornada_trabalho"),
-    ("comando cmd esn 06 76 hora extra", "jornada_trabalho"),
-    ("bloquear veiculo fora do horario de trabalho", "jornada_trabalho"),
-    ("alerta de violacao de jornada alert id 188", "jornada_trabalho"),
-    ("dias da semana jornada nyyyyyn", "jornada_trabalho"),
-    ("parametro 1638 inicio e 1639 fim", "jornada_trabalho"),
-    ("hora extra comando ativar desativar", "jornada_trabalho"),
+    ("como funciona a jornada de trabalho", "jornada_trabalho"),
+    ("alerta de violacao de jornada 188", "jornada_trabalho"),
+    ("tabela de fuso horario utc brasil", "jornada_trabalho"),
+    ("como calcular hora extra no veiculo", "jornada_trabalho"),
+    ("liberar hora extra por comando gprs", "jornada_trabalho"),
+    ("configuracao de jornada de trabalho e descanso", "jornada_trabalho"),
 
     # Intenção: modo_idle
-    ("como acionar saida em modo idle ocioso", "modo_idle"),
-    ("veiculo ligado parado modo ocioso", "modo_idle"),
-    ("tempo limite idle parametro 1615", "modo_idle"),
-    ("acionamento da saida no modo ocioso 1668", "modo_idle"),
-    ("buzzer quando o carro ficar ligado sem andar", "modo_idle"),
+    ("o que e modo idle ocioso", "modo_idle"),
+    ("como funciona o alerta de idle", "modo_idle"),
+    ("motor ligado parado carro ocioso", "modo_idle"),
+    ("configurar tempo de idle no veiculo", "modo_idle"),
 
     # Intenção: comandos
-    ("qual o comando para reiniciar o aparelho", "comandos"),
-    ("comando reboot e reset", "comandos"),
-    ("comando statusreq pegar posicao", "comandos"),
-    ("como ativar a saida 1 enable1", "comandos"),
-    ("como apagar a memoria interna eraseall", "comandos"),
-    ("ajustar hodometro setodometer", "comandos"),
-    ("ajustar horimetro sethmeter", "comandos"),
-    ("solicitar imsi e iccid do chip", "comandos"),
-    ("link do google maps setgooglemap", "comandos"),
-    ("lista de comandos do rastreador", "comandos"),
+    ("quais sao os comandos sms gprs", "comandos"),
+    ("como reiniciar o rastreador por comando reboot", "comandos"),
+    ("comando eraseall apagar memoria", "comandos"),
+    ("comando statusreq pedir posicao", "comandos"),
+    ("estrutura de comandos st300cmd", "comandos"),
 
     # Intenção: comandos_rs232
-    ("comandos pela serial rs232", "comandos_rs232"),
-    ("sttreq comando serial", "comandos_rs232"),
-    ("como habilitar saida 1 pela rs232", "comandos_rs232"),
-    ("cmd 1610009909 04 1", "comandos_rs232"),
-    ("comunicacao rs232 modo normal e rfid", "comandos_rs232"),
+    ("comandos para porta serial rs232", "comandos_rs232"),
+    ("como ler parametros pela rs232", "comandos_rs232"),
+    ("conectar cabo serial 4 vias rs232", "comandos_rs232"),
 
     # Intenção: diferencas_modelos
-    ("qual a diferenca entre st310u e st310uc", "diferencas_modelos"),
-    ("o st310ulc tem jammer", "diferencas_modelos"),
-    ("diferenca entre st8300 e st8300r", "diferencas_modelos"),
-    ("qual modelo e a prova d agua ip67", "diferencas_modelos"),
-    ("diferenca de memoria da linha st310", "diferencas_modelos"),
-    ("qual a diferenca do st8310um para o st8210", "diferencas_modelos"),
-    ("comparativo entre os modelos de rastreadores", "diferencas_modelos"),
-    ("st310u st310ulc comparacao diferenca", "diferencas_modelos"),
+    ("qual a diferenca entre st310u e st310ulc", "diferencas_modelos"),
+    ("o st340ur aguenta agua e chuva", "diferencas_modelos"),
+    ("quais modelos sao a prova de agua ip67", "diferencas_modelos"),
+    ("st8300r tem comunicacao de voz microfone", "diferencas_modelos"),
+    ("diferenca entre st8300 e st4305 cat m1", "diferencas_modelos"),
+    ("st310uc nao tem ip67", "diferencas_modelos"),
 
     # Intenção: especificacoes
-    ("quais sao as bandas 4g do st8300", "especificacoes"),
-    ("o st340ur tem leitor de ibutton", "especificacoes"),
-    ("quantos motoristas cabem no st340ur", "especificacoes"),
-    ("consumo de bateria e modo sleep", "especificacoes"),
-    ("qual a tensao de alimentacao suportada", "especificacoes"),
-    ("o st8310um tem 1-wire ou rs232", "especificacoes"),
-    ("especificacoes tecnicas gerais", "especificacoes"),
-    ("o st340ur aguenta agua e chuva", "especificacoes"),
-    ("o aparelho e a prova d agua ip67", "especificacoes"),
-    ("pode molhar o rastreador", "especificacoes"),
-    ("dimensoes e tamanho do aparelho", "especificacoes"),
-    ("st340ur agua resistente chuva ip67", "especificacoes"),
-
-    # Intenção: cercas
-    ("como criar cerca circular", "cercas"),
-    ("como desenhar cerca poligonal", "cercas"),
-    ("configuracao de cercas virtuais no synctrak", "cercas"),
-    ("limite de velocidade dentro da cerca", "cercas"),
-    ("ativar saida ao entrar na cerca circular", "cercas"),
-    ("geo id da cerca como configurar", "cercas"),
-    ("quantas cercas virtuais suporta", "cercas"),
+    ("quais as especificacoes tecnicas do st8300", "especificacoes"),
+    ("tensao de alimentacao suportada 8v a 33v", "especificacoes"),
+    ("qual a capacidade da bateria backup interna", "especificacoes"),
+    ("quantas posicoes salva na memoria fifo", "especificacoes"),
+    ("tensao de alimentacao do queclink gv50cg 9v a 90v", "especificacoes"),
+    ("especificacoes tecnicas do queclink gv50cg", "especificacoes"),
+    ("bateria backup do queclink gv50cg", "especificacoes"),
 
     # Intenção: chip_sim
-    ("como colocar o chip no st4305", "chip_sim"),
-    ("qual o tamanho do chip no st340ur", "chip_sim"),
-    ("qual o tamanho do chip no st8310um nano sim", "chip_sim"),
-    ("como abrir a tampa do st310 para colocar chip", "chip_sim"),
-    ("cuidado com a borracha de vedacao do chip", "chip_sim"),
-    ("o micro sim deve ficar com metal para baixo", "chip_sim"),
+    ("como colocar o chip sim card", "chip_sim"),
+    ("tamanho do sim card micro sim nano", "chip_sim"),
+    ("como destravar o chip com pin", "chip_sim"),
+    ("qual o tamanho do chip no queclink gv50cg", "chip_sim"),
+    ("onde fica a chave da bateria do gv50cg power switch", "chip_sim"),
+    ("como abrir o gv50cg para colocar o micro sim", "chip_sim"),
 
     # Intenção: configuracao_synctrak
     ("como conectar no synctrak", "configuracao_synctrak"),
@@ -399,19 +404,16 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
 
 def expandir_amostras_invariantes(samples: List[Tuple[str, str]]) -> List[Tuple[str, str]]:
     """
-    Data Augmentation: Para cada exemplo, cria variações invertidas e embaralhadas
-    de palavras para treinar a rede a ser 100% agnóstica à ordem dos termos.
+    Data Augmentation: Cria variações invertidas e ordenadas de palavras
+    para treinar a rede a ser 100% agnóstica à ordem dos termos.
     """
     expandidas = []
     for frase, intent in samples:
         expandidas.append((frase, intent))
         palavras = frase.split()
         if len(palavras) > 2:
-            # Versão invertida
             expandidas.append((" ".join(reversed(palavras)), intent))
-            # Versão tokens ordenados
             expandidas.append((" ".join(sorted(palavras)), intent))
-            # Versão canônica ordenada
             tokens_c = extrair_tokens_canonicos(frase)
             if tokens_c:
                 expandidas.append((" ".join(tokens_c), intent))
@@ -419,7 +421,7 @@ def expandir_amostras_invariantes(samples: List[Tuple[str, str]]) -> List[Tuple[
 
 
 class NeuralManualBrain:
-    """Rede Neural e Motor de Inteligência Artificial para os Manuais Suntech"""
+    """Rede Neural e Motor de Inteligência Artificial para os Manuais Suntech e Queclink"""
 
     def __init__(self):
         self.vectorizer: Optional[TfidfVectorizer] = None
@@ -456,7 +458,6 @@ class NeuralManualBrain:
         print(">> [Rede Neural] Iniciando treinamento da rede neural com invariância à ordem...")
         start_time = time.time()
 
-        # 1. Prepara base de conhecimento e conjuntos de tokens canônicos
         chunk_texts = []
         self.chunk_token_sets = []
         for c in KNOWLEDGE_CHUNKS:
@@ -465,45 +466,43 @@ class NeuralManualBrain:
             chunk_texts.append(inv_text)
             self.chunk_token_sets.append(set(extrair_tokens_canonicos(raw_text)))
 
-        # 2. Expansão com data augmentation das amostras de treino
         amostras_expandidas = expandir_amostras_invariantes(BASE_TRAINING_SAMPLES)
         sample_texts = [gerar_representacao_invariante(s[0]) for s in amostras_expandidas]
         sample_labels = [s[1] for s in amostras_expandidas]
 
         todos_textos = chunk_texts + sample_texts
 
-        # 3. Vetorizador Híbrido N-gram com sublinear TF
         self.vectorizer = TfidfVectorizer(
             ngram_range=(1, 3),
             analyzer="word",
             sublinear_tf=True,
             min_df=1
         )
-        tfidf_matrix = self.vectorizer.fit_transform(todos_textos)
+        X_tfidf = self.vectorizer.fit_transform(todos_textos)
 
-        # 4. Projeção Latente Densa (Neural Embedding Layer)
-        n_features = min(64, tfidf_matrix.shape[1] - 1)
-        self.svd = TruncatedSVD(n_components=n_features, random_state=42)
-        dense_space = self.svd.fit_transform(tfidf_matrix)
+        n_components = min(48, X_tfidf.shape[1] - 1)
+        self.svd = TruncatedSVD(n_components=n_components, random_state=42)
+        X_dense = self.svd.fit_transform(X_tfidf)
 
-        self.chunk_embeddings = dense_space[:len(KNOWLEDGE_CHUNKS)]
+        num_chunks = len(KNOWLEDGE_CHUNKS)
+        self.chunk_embeddings = X_dense[:num_chunks]
 
-        # 5. Treinamento do Classificador Neural Multicamadas (MLP)
-        X_train = dense_space[len(KNOWLEDGE_CHUNKS):]
+        X_train = X_dense[num_chunks:]
         y_train = np.array(sample_labels)
 
         self.mlp = MLPClassifier(
             hidden_layer_sizes=(128, 64),
-            activation='relu',
-            solver='adam',
-            alpha=0.0005,
+            activation="relu",
+            solver="adam",
+            alpha=0.0001,
+            batch_size=32,
+            learning_rate_init=0.003,
             max_iter=600,
             random_state=42,
             early_stopping=False
         )
         self.mlp.fit(X_train, y_train)
 
-        # 6. Salva modelo compilado
         with open(MODEL_FILE, "wb") as f:
             pickle.dump({
                 "vectorizer": self.vectorizer,
@@ -521,6 +520,8 @@ class NeuralManualBrain:
         """Identifica modelo de aparelho mencionado em qualquer posição do texto"""
         q = normalizar_texto(query)
 
+        if "queclink" in q or "gv50cg" in q or "gv50" in q or "gv 50" in q:
+            return "Queclink GV50CG"
         if "st4305" in q:
             return "ST4305"
         if "st8300r" in q:
@@ -569,18 +570,15 @@ class NeuralManualBrain:
         aparelho_detectado = self.detectar_aparelho(query) or filtro_aparelho
         query_tokens = set(extrair_tokens_canonicos(query))
 
-        # 1. Transforma query na representação dual invariante
         q_invariante = gerar_representacao_invariante(query)
         q_tfidf = self.vectorizer.transform([q_invariante])
         q_dense = self.svd.transform(q_tfidf)
 
-        # 2. Predição Neural Multicamadas (MLP)
         probs = self.mlp.predict_proba(q_dense)[0]
         max_idx = np.argmax(probs)
         pred_intent = self.mlp.classes_[max_idx]
         intent_confidence = float(probs[max_idx])
 
-        # 3. Similaridade Cosseno no Espaço Latente Denso
         norm_q = np.linalg.norm(q_dense)
         if norm_q > 0:
             similaridades = np.dot(self.chunk_embeddings, q_dense.T).flatten() / (
@@ -589,13 +587,11 @@ class NeuralManualBrain:
         else:
             similaridades = np.zeros(len(KNOWLEDGE_CHUNKS))
 
-        # 4. Ranqueamento Combinado (Similaridade + MLP + Overlap Canônico + Aparelho)
         scored_chunks = []
         for i, chunk in enumerate(KNOWLEDGE_CHUNKS):
             sim_score = float(similaridades[i])
             bonus_intent = 0.35 if chunk["topic"] == pred_intent else 0.0
 
-            # Bônus de Sobreposição Canônica Jaccard (Agnóstico à ordem)
             overlap_ratio = 0.0
             if query_tokens and self.chunk_token_sets:
                 inter = query_tokens.intersection(self.chunk_token_sets[i])
@@ -606,11 +602,11 @@ class NeuralManualBrain:
                 dev_norm = normalizar_texto(aparelho_detectado)
                 chunk_family_norm = normalizar_texto(chunk["device_family"])
                 if dev_norm in chunk_family_norm or chunk_family_norm in dev_norm:
-                    bonus_device = 0.45
+                    bonus_device = 0.50
                 elif "geral" in chunk_family_norm:
-                    bonus_device = 0.15
+                    bonus_device = 0.10
                 else:
-                    bonus_device = -0.20
+                    bonus_device = -0.25
 
             final_score = (
                 (sim_score * 0.35) +
@@ -620,7 +616,6 @@ class NeuralManualBrain:
             )
             scored_chunks.append((final_score, chunk))
 
-        # Ordenação decrescente por relevância final
         scored_chunks.sort(key=lambda x: x[0], reverse=True)
 
         melhores_chunks = [c for score, c in scored_chunks[:3] if score > 0.05]
@@ -639,7 +634,7 @@ class NeuralManualBrain:
         query: str,
         filtro_aparelho: Optional[str] = None
     ) -> Dict[str, Any]:
-        """Gera a resposta completa estruturada a partir da análise da Rede Neural"""
+        """Gera a resposta completa personalizada e direta a partir da consulta"""
         start_time = time.time()
         analise = self.inferir_intencao_e_ranking(query, filtro_aparelho)
         chunks = analise["chunks"]
@@ -651,19 +646,18 @@ class NeuralManualBrain:
             tempo_ms = int((time.time() - start_time) * 1000)
             return {
                 "resposta": (
-                    "Não encontrei informações correspondentes nos manuais dos aparelhos "
-                    "Suntech com base na sua pergunta. Por favor, especifique o modelo do rastreador "
-                    "(ex: **ST340UR**, **ST4305/ST8300**, **ST310U/UC**, **ST8310UM**) e o tópico "
-                    "(ex: chicote, calibração DPA, LEDs, relé de corte, comandos ou jornada de trabalho)."
+                    "Não encontrei informações correspondentes nos manuais técnicos com base na sua pergunta. "
+                    "Por favor, especifique o modelo do rastreador (ex: **Queclink GV50CG**, **ST340UR**, **ST4305/ST8300**, "
+                    "**ST310U/UC**, **ST8310UM**) e a dúvida exata (ex: fio de pós-chave, relé com diodo, LEDs ou calibração)."
                 ),
                 "intencao": intencao,
                 "aparelho_detectado": aparelho,
                 "confianca": confianca,
                 "fontes": [],
                 "sugestoes": [
-                    "Qual a pinagem do chicote do ST340UR?",
-                    "Como calibrar o DPA por ignição no ST8300?",
-                    "Quais as diferenças entre ST310U e ST310ULC?"
+                    "Qual o fio pós-chave do Queclink GV50CG?",
+                    "Como ligar o relé com diodo 1N4004 no GV50CG?",
+                    "Qual a pinagem do chicote do ST340UR?"
                 ],
                 "tempo_ms": tempo_ms
             }
@@ -671,8 +665,8 @@ class NeuralManualBrain:
         chunk_principal = chunks[0]
         fontes = [f"{c['device_family']} ({c['pages']})" for c in chunks]
 
-        # Montagem inteligente da resposta estruturada com resposta direta
-        resposta_md = self._sintetizar_conteudo(query, chunk_principal, chunks, aparelho, intencao)
+        # Sintetiza resposta sob medida, respondendo DE FATO o que foi perguntado
+        resposta_md = self._sintetizar_conteudo_personalizado(query, chunk_principal, aparelho, intencao)
         sugestoes = self._gerar_sugestoes_contextuais(intencao, aparelho or chunk_principal["device_family"])
         tempo_ms = int((time.time() - start_time) * 1000)
 
@@ -686,139 +680,422 @@ class NeuralManualBrain:
             "tempo_ms": tempo_ms
         }
 
-    def _extrair_resposta_direta(self, query: str, aparelho: Optional[str], intencao: str) -> Optional[str]:
-        """
-        Extrai resposta direta e inequívoca para a dúvida do instalador,
-        apresentando imediatamente o resultado antes dos detalhes completos.
-        """
-        q = normalizar_texto(query)
-        dev = (aparelho or "").upper()
-
-        # Dúvida de Ignição / Pós-Chave
-        if "ignicao" in q or "pos" in q or "chave" in q:
-            if "st340" in q or "ST340" in dev:
-                return "👉 **Resposta Direta:** No **ST340UR**, o pós-chave / ignição é o **Fio Branco** (Entrada 1 ou Ignição - GND/VCC)."
-            elif "st8300" in q or "st4305" in q or "ST8300" in dev or "ST4305" in dev:
-                return "👉 **Resposta Direta:** No **ST4305 / ST8300 / ST8300H / ST8300R**, a ignição física é o **Fio Azul** (8 a 33 Vcc)."
-            elif "st310" in q or "ST310" in dev:
-                return "👉 **Resposta Direta:** Na linha **ST310 (U/UC/UC2/ULC)**, a ignição física é o **Fio Branco** (Entrada 1 - GND/VCC)."
-            elif "st8310" in q or "st8210" in q or "ST8310" in dev:
-                return "👉 **Resposta Direta:** No **ST8310UM / ST8210**, a ignição física é o **Fio Branco** (Entrada 1 ou Ignição - GND/VCC)."
-
-        # Dúvida de Relé de 5 Pinos / Bomba
-        if "rele" in q or "5 pinos" in q or "bomba" in q:
-            return (
-                "👉 **Resposta Direta (Relé 5 Pinos):**\n"
-                "• **Pino 30 e 87A:** Ligados em série nas duas pontas do fio cortado da bomba (lógica normal 1)\n"
-                "• **Pino 85:** Conectado ao **Fio Laranja** do rastreador (Saída 1 GND de bloqueio)\n"
-                "• **Pino 86:** Conectado ao **Pós-Chave (12V/24V)**"
-            )
-
-        # Dúvida de Calibração DPA por Ignição (Quantas ignições?)
-        if "calibrar" in q or "dpa" in q or "ignicoes" in q:
-            if "st8310" in q or "ST8310" in dev:
-                return "👉 **Resposta Direta:** No **ST8310UM**, a calibração por ignição requer **8 ignições ON** (mantendo ligado na 8ª). LEDs piscam a 0.5s. Dirija >10km/h com 3 freadas, 3 acelerações e 3 curvas normais."
-            elif "st340" in q or "ST340" in dev:
-                return "👉 **Resposta Direta:** No **ST340UR**, ligue e desligue a ignição **7 vezes** (as 6 primeiras 'meia chave', na 7ª chave total). LEDs piscam a 0.5s. Dirija >10km/h com 3 freadas, 3 acelerações e 3 curvas normais."
-            elif "st8300" in q or "st4305" in q or "ST8300" in dev:
-                return "👉 **Resposta Direta:** No **ST8300 / ST4305**, realize a sequência de **7 ignições OFF** e ligue na 8ª (OFF>ON>...OFF(7)>ON(8)). LEDs piscam a 0.5s. Dirija >10km/h com 3 freadas, acelerações e curvas normais."
-
-        # Dúvida de Piscadas de LEDs
-        if "4" in q and ("led" in q or "pisca" in q or "vermelho" in q):
-            return "👉 **Resposta Direta:** **LED Vermelho piscando 4 vezes** indica **Erro no Chipset de GPS ou Erro na Antena de GPS** (antena desconectada ou conector danificado)."
-        if "2" in q and ("led" in q or "pisca" in q or "vermelho" in q):
-            return "👉 **Resposta Direta:** **LED Vermelho piscando 2 vezes** indica **Sem Sinal GPS** (buscando satélites, mau posicionamento sob metal ou sem visada direta)."
-        if "7" in q and ("led" in q or "pisca" in q or "azul" in q or "sim" in q):
-            return "👉 **Resposta Direta:** **LED Azul piscando 7 vezes** indica **Sem SIM Card** (chip não inserido, mal encaixado ou conector quebrado)."
-
-        # Dúvida de Senha Synctrak
-        if "senha" in q and "synctrak" in q:
-            return "👉 **Resposta Direta:** A senha de fábrica padrão da Suntech no software Synctrak é **`st5656`**."
-
-        # Dúvida de Resistência à Água / IP67
-        if "agua" in q or "chuva" in q or "molhar" in q or "ip67" in q:
-            if "st340" in q or "ST340" in dev:
-                return "👉 **Resposta Direta:** **Sim!** O **ST340UR** possui certificação **IP67** com carcaça estanque e borracha de vedação com 6 parafusos, resistente a chuva e jatos d'água, ideal para motos, jet skis e barcos."
-            if "st310" in q or "ST310" in dev:
-                return "👉 **Resposta Direta:** **ST310U, ST310UC2 e ST310ULC possuem IP67**. Já o modelo **ST310UC NÃO possui certificação IP67** e deve ser instalado somente no interior do painel de veículos fechados."
-
-        return None
-
-    def _sintetizar_conteudo(
+    def _sintetizar_conteudo_personalizado(
         self,
         query: str,
         principal: Dict[str, Any],
-        todos_chunks: List[Dict[str, Any]],
         aparelho: Optional[str],
         intencao: str
     ) -> str:
-        """Produz texto em Markdown rico, técnico e diretamente aplicável"""
-        nome_aparelho = aparelho if aparelho else principal["device_family"]
+        """
+        Produz resposta altamente personalizada, respondendo EXATAMENTE o que foi perguntado,
+        evitando blocos de textos gigantes e focando no detalhe requisitado pelo instalador.
+        """
+        q = normalizar_texto(query)
+        dev = (aparelho or principal["device_family"]).strip()
+        dev_upper = dev.upper()
 
-        cabecalho = f"### 📘 {principal['title']}\n"
-        cabecalho += f"**Aparelho:** `{nome_aparelho}` | **Referência no Manual Oficial:** {principal['pages']}\n\n"
+        # Determina o aparelho ativo
+        is_gv50 = "GV50" in dev_upper or "QUECLINK" in dev_upper or "gv50" in q or "queclink" in q
+        is_st340 = "ST340" in dev_upper or "st340" in q
+        is_st8300 = ("ST8300" in dev_upper or "ST4305" in dev_upper or "st8300" in q or "st4305" in q) and not is_st340
+        is_st310 = "ST310" in dev_upper or "st310" in q
+        is_st8310 = "ST8310" in dev_upper or "ST8210" in dev_upper or "st8310" in q or "st8210" in q
 
-        # Extração de Resposta Direta em Destaque
-        resposta_direta = self._extrair_resposta_direta(query, aparelho, intencao)
-        bloco_direto = ""
-        if resposta_direta:
-            bloco_direto = f"> {resposta_direta}\n\n"
+        # Se não identificou nenhum específico, assume o do chunk principal
+        if not (is_gv50 or is_st340 or is_st8300 or is_st310 or is_st8310):
+            fam = principal["device_family"].upper()
+            if "QUECLINK" in fam or "GV50" in fam:
+                is_gv50 = True
+            elif "ST340" in fam:
+                is_st340 = True
+            elif "ST8300" in fam or "ST4305" in fam:
+                is_st8300 = True
+            elif "ST310" in fam:
+                is_st310 = True
+            elif "ST8310" in fam:
+                is_st8310 = True
 
-        corpo = principal["content"].strip()
-
-        # Adiciona complemento somente se for exatamente do mesmo tópico ou boas práticas de instalação
-        complemento = ""
-        if len(todos_chunks) > 1 and todos_chunks[1]["id"] != principal["id"]:
-            segundo = todos_chunks[1]
-            if segundo["topic"] == principal["topic"]:
-                complemento = f"\n\n---\n#### 🔍 Informações Adicionais ({segundo['title']}):\n{segundo['content'].strip()}"
-            elif principal["topic"] in ("fios_chicote", "instalacao_eletrica", "bloqueio_rele") and segundo["topic"] == "instalacao_eletrica":
-                complemento = f"\n\n---\n#### 🔍 Boas Práticas de Instalação ({segundo['title']}):\n{segundo['content'].strip()}"
-
-        rodape = (
-            "\n\n> 💡 **Nota Técnica Suntech:** Lembre-se sempre de utilizar fusível de proteção (5A) "
-            "no fio de alimentação VCC e validar as medições de tensão com multímetro antes de finalizar a emenda."
+        nome_modelo = "Queclink GV50CG" if is_gv50 else (
+            "Suntech ST340UR" if is_st340 else (
+                "Suntech ST4305 / ST8300" if is_st8300 else (
+                    "Suntech Linha ST310" if is_st310 else (
+                        "Suntech ST8310UM" if is_st8310 else dev
+                    )
+                )
+            )
         )
 
-        return cabecalho + bloco_direto + corpo + complemento + rodape
+        eh_pergunta_completa = any(w in q for w in [
+            "completo", "completa", "todos os fios", "todas as cores", "tabela", "pinagem completa", "visao geral"
+        ])
+
+        # Flags semânticas precisas com limites de palavras (Word Boundaries)
+        tem_led = bool(re.search(r'\b(led|leds|pisca|piscando|piscada|piscadas|luz)\b', q))
+        tem_rele = bool(re.search(r'\b(rele|bloqueio|bloquear|corte|cortar|imobilizador|diodo|1n4004)\b', q)) or ("bomba" in q and "combustivel" in q)
+        tem_ignicao = bool(re.search(r'\b(pos chave|pos-chave|poschave|ignicao|linha 15)\b', q)) or (bool(re.search(r'\b(pos|chave|ign)\b', q)) and not bool(re.search(r'\b(significa|designar)\b', q)))
+        tem_positivo = bool(re.search(r'\b(positivo|vcc|alimentacao|tensao|volts|voltagem|fusivel)\b', q))
+        tem_negativo = bool(re.search(r'\b(negativo|gnd|terra)\b', q))
+        tem_panico = bool(re.search(r'\b(panico|emergencia|analogic|analogica|analogico|adc|botao segredo)\b', q))
+        tem_antena = bool(re.search(r'\b(antena|sky|towards sky|ceu|posicionamento|orientacao)\b', q))
+        tem_sim = bool(re.search(r'\b(sim|chip|micro sim|micro-sim|chave|switch|power switch)\b', q))
+        tem_dpa = bool(re.search(r'\b(dpa|calibrar|calibracao|calibra)\b', q))
+        tem_senha = bool(re.search(r'\b(senha|password|st5656)\b', q))
+        tem_ip67 = bool(re.search(r'\b(ip67|agua|chuva|molhar|estanque|vedacao)\b', q))
+
+        # ---------------------------------------------------------------------
+        # 1. PERGUNTAS DE DIAGNÓSTICO DE LEDS (Prioridade se mencionou LED/Piscada)
+        # ---------------------------------------------------------------------
+        if tem_led and not tem_dpa:
+            if is_gv50:
+                if "verde" in q or "celular" in q or "rede" in q or "gsm" in q or "lte" in q:
+                    return (
+                        f"### 💡 Diagnóstico do LED Celular (Verde) - {nome_modelo}\n"
+                        f"**Manual Oficial:** Queclink GV50CG (Págs. 7, 8)\n\n"
+                        f"• **Piscando Rápido (100ms Ligado / 800ms Desligado):** Buscando sinal de rede celular LTE Cat 1 / 2G.\n"
+                        f"• **Piscando Lento (100ms Ligado / 2000ms Desligado):** Registrado com sucesso na rede celular (Operação Normal / Online).\n"
+                        f"• **Aceso Fixo (Continuously ON):** **Cartão SIM bloqueado por código PIN**. Solução: Coloque o chip em um smartphone e desative a senha PIN nas configurações.\n"
+                        f"• **Apagado:** Modem celular desligado ou equipamento sem alimentação."
+                    )
+                elif "azul" in q or "gnss" in q or "gps" in q:
+                    return (
+                        f"### 💡 Diagnóstico do LED GNSS / GPS (Azul) - {nome_modelo}\n"
+                        f"**Manual Oficial:** Queclink GV50CG (Págs. 7, 8)\n\n"
+                        f"• **Aceso Fixo (Continuously ON):** **Fix GNSS obtido com sucesso** (localização GPS precisa calculada).\n"
+                        f"• **Piscando Rápido (100ms Ligado / 100ms Desligado):** Buscando satélites GNSS (sem posição fixada ainda).\n"
+                        f"• **Piscando Lento (600ms Ligado / 600ms Desligado):** GNSS sem sinal ou erro nos dados de satélite.\n"
+                        f"• **Apagado:** Receptor GNSS desligado."
+                    )
+                else:
+                    return (
+                        f"### 💡 Tabela de LEDs - {nome_modelo}\n"
+                        f"**Manual Oficial:** Queclink GV50CG (Págs. 7, 8)\n\n"
+                        f"**1. LED Celular (Verde):**\n"
+                        f"• *Piscando rápido:* Buscando rede celular LTE/2G\n"
+                        f"• *Piscando lento:* Registrado na rede (Online / OK)\n"
+                        f"• *Aceso fixo:* Chip SIM bloqueado por PIN (necessário desbloquear)\n\n"
+                        f"**2. LED GNSS (Azul):**\n"
+                        f"• *Aceso fixo:* GPS Fixado com precisão\n"
+                        f"• *Piscando rápido:* Buscando satélites\n"
+                        f"• *Piscando lento:* Sem sinal de satélite"
+                    )
+            else:
+                if "4" in q:
+                    return (
+                        f"### 💡 LED Vermelho com 4 Piscadas - {nome_modelo}\n"
+                        f"**Manual Oficial:** Suntech Diagnóstico de LEDs\n\n"
+                        f"> 👉 **Significado:** **Erro no Chipset de GPS ou Erro na Antena de GPS**\n\n"
+                        f"• **Possíveis Causas:** Antena de GPS desconectada, cabo rompido, conector SMA danificado ou defeito no módulo interno de GPS.\n"
+                        f"• **Ação Recomendada:** Verifique a conexão física da antena externa de GPS ou substitua a antena para testar."
+                    )
+                elif "2" in q and ("vermelho" in q or "gps" in q):
+                    return (
+                        f"### 💡 LED Vermelho com 2 Piscadas - {nome_modelo}\n"
+                        f"> 👉 **Significado:** **Sem Sinal GPS** (buscando satélites).\n\n"
+                        f"• **Solução:** Posicione o veículo em local aberto com céu visível. Não posicione a antena sob estruturas metálicas."
+                    )
+                elif "7" in q:
+                    return (
+                        f"### 💡 LED Azul com 7 Piscadas - {nome_modelo}\n"
+                        f"> 👉 **Significado:** **Sem Cartão SIM Card**\n\n"
+                        f"• **Possíveis Causas:** Chip não inserido, mal posicionado no slot ou leitor de chip danificado.\n"
+                        f"• **Solução:** Retire o chip, limpe os contatos dourados com álcool isopropílico e reinsira até travar com clique."
+                    )
+                elif "5" in q:
+                    return (
+                        f"### 💡 LED Azul com 5 Piscadas - {nome_modelo}\n"
+                        f"> 👉 **Significado:** **Cartão SIM Bloqueado por PIN**\n\n"
+                        f"• **Solução:** Insira o chip em um smartphone e desative a solicitação de PIN nas opções de segurança do aparelho."
+                    )
+
+        # ---------------------------------------------------------------------
+        # 2. PERGUNTAS DE BLOQUEIO / CORTE / RELÉ / DIODO 1N4004
+        # ---------------------------------------------------------------------
+        if tem_rele and not tem_dpa and not ("antifurto" in q):
+            if is_gv50:
+                return (
+                    f"### 📘 Esquema de Bloqueio e Relé - {nome_modelo}\n"
+                    f"**Manual Oficial:** Queclink GV50CG (Págs. 11, 12)\n\n"
+                    f"> 👉 **Fio de Bloqueio:** Fio Marrom (Pino 4 - OUT / Saída Digital Open-Drain máx 150mA)\n\n"
+                    f"#### ⚠️ Atenção Crítica (Diodo de Roda Livre Obrigatório):\n"
+                    f"É **obrigatório** instalar um diodo (ex: **1N4004**) em paralelo entre os pinos 85 e 86 da bobina do relé para proteger a saída digital do GV50CG contra queima por pico indutivo.\n\n"
+                    f"#### 🔌 Ligação nos Pinos do Relé Automotivo (12V/24V):\n"
+                    f"• **Pino 85:** Conecte ao Fio Marrom do GV50CG e ao **Ânodo** do diodo 1N4004 (lado sem faixa)\n"
+                    f"• **Pino 86:** Conecte ao **Pós-Chave (+12V/+24V)** e ao **Cátodo** do diodo 1N4004 (lado com a faixa prateada/branca)\n"
+                    f"• **Pinos 30 e 87A (Normal Fechado):** Interrompem o fio positivo da bomba de combustível ou ignição (uma ponta cortada no 30 e a outra no 87A)\n"
+                    f"• **Pino 87:** Deixe isolado (não utilizado)"
+                )
+            elif is_st340:
+                return (
+                    f"### 📘 Esquema de Bloqueio e Relé - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST340UR (Págs. 10, 11)\n\n"
+                    f"> 👉 **Fio de Bloqueio:** Fio Verde (Saída 1 - GND máx 200mA)\n\n"
+                    f"#### 🔌 Ligação nos Pinos do Relé (Corte na Bomba):\n"
+                    f"• **Pino 85:** Conecte ao Fio Verde (Saída 1) do ST340UR\n"
+                    f"• **Pino 86:** Conecte ao **Pós-Chave (+12V/+24V)**\n"
+                    f"• **Pinos 30 e 87A:** Em série nas duas pontas do fio cortado da bomba de combustível\n"
+                    f"• **Pino 87:** Deixe isolado"
+                )
+            else:
+                return (
+                    f"### 📘 Esquema de Bloqueio e Relé - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech (Págs. 11, 14)\n\n"
+                    f"> 👉 **Fio de Bloqueio:** Fio Laranja (Saída 1 - GND máx 300mA a 500mA)\n\n"
+                    f"#### 🔌 Ligação nos Pinos do Relé (Corte na Bomba):\n"
+                    f"• **Pino 85:** Conecte ao Fio Laranja (Saída 1) do rastreador\n"
+                    f"• **Pino 86:** Conecte ao **Pós-Chave (+12V/+24V)**\n"
+                    f"• **Pinos 30 e 87A:** Em série nas duas pontas do fio cortado da bomba de combustível (lógica normal 1)\n"
+                    f"• **Pino 87:** Deixe isolado"
+                )
+
+        # ---------------------------------------------------------------------
+        # 3. PERGUNTAS DE PÓS-CHAVE / IGNIÇÃO / LINHA 15
+        # ---------------------------------------------------------------------
+        if tem_ignicao and not tem_dpa and not tem_led:
+            if is_gv50:
+                return (
+                    f"### 📘 Pós-Chave / Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Queclink GV50CG (Págs. 10, 11)\n\n"
+                    f"> 👉 **Fio de Ignição:** Fio Branco (Pino 5 - IGN)\n\n"
+                    f"• **Tipo de Sinal:** Trigger positivo de ignição (ativo de 5.0V a 32V / inativo 0 a 3V ou circuito aberto).\n"
+                    f"• **Onde Conectar:** Conecte à linha 15 (pós-chave do veículo), onde há +12V ou +24V com a ignição ligada e 0V com a chave desligada.\n"
+                    f"• **Dica de Instalação:** Teste com multímetro durante a partida do motor para certificar-se de que a linha 15 não corta a alimentação temporariamente."
+                )
+            elif is_st340:
+                return (
+                    f"### 📘 Pós-Chave / Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST340UR (Pág. 10)\n\n"
+                    f"> 👉 **Fio de Ignição:** Fio Branco (Entrada 1 ou Ignição - GND/VCC)\n\n"
+                    f"• **Faixa de Tensão Suportada:** 8 a 30 Vcc.\n"
+                    f"• **Onde Conectar:** Conecte à linha 15 (pós-chave do veículo).\n"
+                    f"• **Dica Técnica:** No ST340UR a Entrada 1 vem pré-configurada de fábrica para detectar nível de pós-chave positivo."
+                )
+            elif is_st8300:
+                return (
+                    f"### 📘 Pós-Chave / Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST8300 / ST4305 (Pág. 11)\n\n"
+                    f"> 👉 **Fio de Ignição:** Fio Azul (Pino 3 do chicote principal de 8 vias)\n\n"
+                    f"• **Faixa de Tensão:** 8 a 33 Vcc.\n"
+                    f"• **Onde Conectar:** Conecte diretamente à linha 15 do comutador de partida.\n"
+                    f"• **Atenção:** No ST8300/ST4305 a ignição é o Fio Azul (o Fio Branco é a Entrada 1 para botão antifurto/pânico GND)."
+                )
+            elif is_st310:
+                return (
+                    f"### 📘 Pós-Chave / Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech Linha ST310 (Págs. 10, 11)\n\n"
+                    f"> 👉 **Fio de Ignição:** Fio Branco (Entrada 1 - Ignição GND/VCC)\n\n"
+                    f"• **Faixa de Tensão:** 8 a 30 Vcc.\n"
+                    f"• **Onde Conectar:** Conecte à linha 15 (pós-chave do veículo)."
+                )
+            elif is_st8310:
+                return (
+                    f"### 📘 Pós-Chave / Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST8310UM (Pág. 11)\n\n"
+                    f"> 👉 **Fio de Ignição:** Fio Branco (Entrada 1 ou Ignição - GND/VCC)\n\n"
+                    f"• **Faixa de Tensão:** 8 a 33 Vcc.\n"
+                    f"• **Onde Conectar:** Conecte à linha 15 (pós-chave do veículo)."
+                )
+
+        # ---------------------------------------------------------------------
+        # 4. PERGUNTAS DE ALIMENTAÇÃO POSITIVA / TENSÃO / FUSÍVEL
+        # ---------------------------------------------------------------------
+        if tem_positivo and not tem_sim:
+            if is_gv50:
+                return (
+                    f"### 📘 Alimentação Elétrica (Positivo / VCC) - {nome_modelo}\n"
+                    f"**Manual Oficial:** Queclink GV50CG (Págs. 6, 10)\n\n"
+                    f"> 👉 **Fio Positivo:** Fio Vermelho (Pino 2 - VIN)\n\n"
+                    f"• **Tensão de Operação Suportada:** **DC 9V a 90V Contínua** (ampla compatibilidade com motos, veículos 12V, caminhões 24V e máquinas pesadas até 90V).\n"
+                    f"• **Proteção Obrigatória:** Instale porta-fusível com fusível de **2A a 5A** o mais próximo possível do borne da bateria.\n"
+                    f"• **Bateria Backup Interna:** Li-Polymer 190mAh / 3.7V recarregável com chave física interna liga/desliga."
+                )
+            else:
+                return (
+                    f"### 📘 Alimentação Elétrica (Positivo / VCC) - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech (Pág. 11)\n\n"
+                    f"> 👉 **Fio Positivo:** Fio Vermelho (Alimentação 8V a 30V/33V DC)\n\n"
+                    f"• **Tensão de Operação:** Compatível com veículos 12V e 24V.\n"
+                    f"• **Proteção Obrigatória:** Instale fusível de proteção de **5A** na linha positiva próximo à bateria do veículo."
+                )
+
+        # ---------------------------------------------------------------------
+        # 5. PERGUNTAS DE NEGATIVO / GND / TERRA
+        # ---------------------------------------------------------------------
+        if tem_negativo:
+            pino_str = " (Pino 3 - GND)" if is_gv50 else " (Pino 2)"
+            return (
+                f"### 📘 Aterramento / Negativo (GND) - {nome_modelo}\n\n"
+                f"> 👉 **Fio Negativo:** Fio Preto{pino_str}\n\n"
+                f"• **Como Conectar:** Conecte diretamente ao chassi metálico limpo (sem tinta, verniz ou ferrugem) ou no borne negativo da bateria.\n"
+                f"• **Recomendação:** Um aterramento deficiente causa oscilações e reinicializações inesperadas no rastreador."
+            )
+
+        # ---------------------------------------------------------------------
+        # 6. PERGUNTAS DE BOTÃO DE PÂNICO / ENTRADAS ANALÓGICAS
+        # ---------------------------------------------------------------------
+        if tem_panico:
+            if is_gv50:
+                return (
+                    f"### 📘 Botão de Pânico / Entrada Analógica - {nome_modelo}\n"
+                    f"**Manual Oficial:** Queclink GV50CG (Págs. 10, 11)\n\n"
+                    f"> 👉 **Fio de Pânico / Entrada 1:** Fio Laranja (Pino 1 - AIN / IN1)\n\n"
+                    f"• **Função Entrada Digital (Pânico):** Trigger negativo GND (ativo de 0 a 0.8V, inativo circuito aberto). Ligue entre o Fio Laranja e o terra através do botão normalmente aberto.\n"
+                    f"• **Função Entrada Analógica (AIN):** Medição de tensão analógica na faixa de 0 a 16V DC."
+                )
+            elif is_st8300:
+                return (
+                    f"### 📘 Botão de Pânico e Entrada Analógica - {nome_modelo}\n\n"
+                    f"• **Botão de Pânico:** Fio Branco (Entrada 1 - ativa por terra GND).\n"
+                    f"• **Entrada Analógica ADC:** Fio Verde (Entrada 3 - mede tensão de 0 a 30V com resolução 0.01V)."
+                )
+
+        # ---------------------------------------------------------------------
+        # 7. PERGUNTAS DE ORIENTAÇÃO DA ANTENA (QUECLINK GV50CG)
+        # ---------------------------------------------------------------------
+        if tem_antena and is_gv50:
+            return (
+                f"### 📡 Posicionamento e Antena - {nome_modelo}\n"
+                f"**Manual Oficial:** Queclink GV50CG (Págs. 14, 15)\n\n"
+                f"> 👉 **Orientação Obrigatória:** O lado liso sem LEDs possui a gravação **`THIS SIDE TOWARDS SKY`** (Este lado voltado para o céu).\n\n"
+                f"• **Direção:** Este lado DEVE ficar apontado para cima (em direção ao céu) para receber o sinal dos satélites GNSS.\n"
+                f"• **Superfícies:** Não instale o equipamento diretamente sob latarias ou vigas metálicas. Painéis plásticos, borrachas e carpetes não afetam o sinal.\n"
+                f"• **Fixação:** Utilize fita dupla face 3M automotiva ou abraçadeiras plásticas firmes presas ao chicote fixo do veículo."
+            )
+
+        # ---------------------------------------------------------------------
+        # 8. PERGUNTAS DE CHIP SIM CARD E CHAVE DE BATERIA (QUECLINK GV50CG)
+        # ---------------------------------------------------------------------
+        if tem_sim and is_gv50:
+            return (
+                f"### 📱 Instalação do SIM Card e Chave da Bateria - {nome_modelo}\n"
+                f"**Manual Oficial:** Queclink GV50CG (Págs. 8, 9)\n\n"
+                f"• **Tamanho do Chip:** Utiliza padrão **Micro-SIM (3FF)** com os contatos dourados voltados para baixo.\n"
+                f"• **Chave da Bateria (Power Switch):**\n"
+                f"  - De fábrica para transporte, a chave vem em **OFF**.\n"
+                f"  - **Mude a chave para a posição ON** após inserir o chip para ativar a bateria de backup interna de 190mAh.\n"
+                f"• **Abertura do Gabinete:** Solte os parafusos traseiros, monte o chip e aperte os parafusos firmemente para garantir a vedação contra poeira e umidade."
+            )
+
+        # ---------------------------------------------------------------------
+        # 9. PERGUNTAS DE CALIBRAÇÃO DPA
+        # ---------------------------------------------------------------------
+        if tem_dpa:
+            if is_st340:
+                return (
+                    f"### 🎯 Procedimento de Calibração DPA por Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST340UR (Pág. 12)\n\n"
+                    f"> 👉 **Sequência de Ignições:** Ligue e desligue a ignição **7 vezes** (as primeiras 6 em 'meia chave', na 7ª ligue o motor).\n\n"
+                    f"• **Sinalização:** Os LEDs piscarão rapidamente a cada 0.5 segundos confirmando o modo calibração.\n"
+                    f"• **Condução do Veículo:** Dirija a mais de 10 km/h e execute:\n"
+                    f"  1. **3 freadas normais**\n"
+                    f"  2. **3 acelerações normais**\n"
+                    f"  3. **3 curvas normais**\n"
+                    f"• **Conclusão:** Os LEDs voltam ao padrão normal quando a calibração do acelerômetro é concluída."
+                )
+            elif is_st8310:
+                return (
+                    f"### 🎯 Procedimento de Calibração DPA por Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST8310UM (Pág. 12)\n\n"
+                    f"> 👉 **Sequência:** Ligue a ignição **8 vezes seguidas** (mantendo ligada na 8ª).\n\n"
+                    f"• **Sinalização:** LEDs piscam a 0.5s.\n"
+                    f"• **Percurso:** Dirija >10 km/h realizando 3 freadas, 3 curvas e 3 acelerações normais."
+                )
+            elif is_st8300:
+                return (
+                    f"### 🎯 Procedimento de Calibração DPA por Ignição - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST8300 / ST4305 (Págs. 14, 15)\n\n"
+                    f"> 👉 **Sequência:** Realize **7 desligamentos da chave (OFF)** e ligue na 8ª (OFF>ON>...OFF(7)>ON(8)).\n\n"
+                    f"• **Sinalização:** LEDs piscam a cada 0.5s.\n"
+                    f"• **Percurso:** Dirija a >10 km/h com 3 freadas, 3 curvas e 3 acelerações normais."
+                )
+
+        # ---------------------------------------------------------------------
+        # 10. PERGUNTAS DE SENHA SYNCTRAK
+        # ---------------------------------------------------------------------
+        if tem_senha:
+            return (
+                f"### 🔑 Senha Padrão de Fábrica - Synctrak\n\n"
+                f"> 👉 A senha de fábrica padrão da Suntech no software Synctrak é: **`st5656`**\n\n"
+                f"• Para conectar via USB/Serial, instale o driver CP210x, selecione a porta COM correta e baud rate 115200 bps."
+            )
+
+        # ---------------------------------------------------------------------
+        # 11. PERGUNTAS DE RESISTÊNCIA À ÁGUA / IP67
+        # ---------------------------------------------------------------------
+        if tem_ip67:
+            if is_st340:
+                return (
+                    f"### 🛡️ Proteção IP67 Contra Água e Poeira - {nome_modelo}\n"
+                    f"**Manual Oficial:** Suntech ST340UR (Págs. 1, 9)\n\n"
+                    f"> 👉 **Sim! O ST340UR possui certificação estanque IP67 total.**\n\n"
+                    f"• Possui carcaça vedada com anel de borracha de silicone e fechamento por 6 parafusos.\n"
+                    f"• É resistente a jatos d'água fortes, chuva torrencial e poeira intensa, sendo ideal para motos, quadriciclos, barcos e jet skis."
+                )
+            elif is_st310:
+                return (
+                    f"### 🛡️ Proteção IP67 na Linha ST310\n\n"
+                    f"• **ST310U, ST310UC2 e ST310ULC:** Possuem certificação **IP67** estanque.\n"
+                    f"• **ST310UC:** **NÃO possui proteção IP67**, devendo ser instalado estritamente no interior protegido do painel."
+                )
+
+        # ---------------------------------------------------------------------
+        # 12. PERGUNTAS DO CHICOTE COMPLETO
+        # ---------------------------------------------------------------------
+        if is_gv50 and ("chicote" in q or "fios" in q or "pinagem" in q or eh_pergunta_completa):
+            return (
+                f"### 📘 Chicote Completo de 5 Vias - {nome_modelo}\n"
+                f"**Manual Oficial:** Queclink GV50CG (Págs. 10, 11)\n\n"
+                f"| Pino | Cor do Fio | Sinal / Função | Descrição Técnica |\n"
+                f"| :--- | :--- | :--- | :--- |\n"
+                f"| **1** | Fio Laranja | **AIN / IN1** | Entrada Analógica (0-16V) ou Digital negativa (Pânico) |\n"
+                f"| **2** | Fio Vermelho | **VIN** | Alimentação Positiva Contínua (DC 9V a 90V) |\n"
+                f"| **3** | Fio Preto | **GND** | Negativo / Terra (Chassi) |\n"
+                f"| **4** | Fio Marrom | **OUT** | Saída Digital Open-Drain (Bloqueio máx 150mA, requer diodo) |\n"
+                f"| **5** | Fio Branco | **IGN** | Entrada de Ignição / Pós-Chave (5.0V a 32V) |\n\n"
+                f"> 💡 **Nota Técnica:** Lembre-se de utilizar diodo de roda livre 1N4004 na bobina do relé ao conectar o Fio Marrom."
+            )
+
+        # ---------------------------------------------------------------------
+        # 13. FALLBACK: RESPOSTA RESUMIDA E ESTRUTURADA DO CHUNK PRINCIPAL
+        # ---------------------------------------------------------------------
+        cabecalho = f"### 📘 {principal['title']}\n"
+        cabecalho += f"**Aparelho:** `{nome_modelo}` | **Referência no Manual Oficial:** {principal['pages']}\n\n"
+        corpo = principal["content"].strip()
+
+        return f"{cabecalho}{corpo}"
 
     def _gerar_sugestoes_contextuais(self, intencao: str, aparelho: str) -> List[str]:
         """Gera perguntas de continuação contextualizadas"""
-        if intencao in ("fios_chicote", "bloqueio_rele"):
+        dev = aparelho.upper()
+        if "GV50" in dev or "QUECLINK" in dev:
             return [
-                f"Como ligar o relé de 5 pinos para corte na bomba de combustível?",
-                f"Qual a função do fio branco (ignição) no {aparelho}?",
-                f"Onde conectar a sirene ou buzzer no {aparelho}?"
+                "Como ligar o relé com diodo 1N4004 no Queclink GV50CG?",
+                "Qual a cor do fio de ignição no Queclink GV50CG?",
+                "O que significa o LED celular verde piscando rápido no GV50CG?"
+            ]
+        elif intencao in ("fios_chicote", "bloqueio_rele"):
+            return [
+                f"Como ligar o relé de 5 pinos para corte na bomba no {aparelho}?",
+                f"Qual o fio de pós-chave no {aparelho}?",
+                "Qual a pinagem do chicote do Queclink GV50CG?"
             ]
         elif intencao == "calibracao_dpa":
             return [
-                f"Como calibrar o DPA por comando no Synctrak?",
-                f"Quantas ignições são necessárias para calibrar o DPA no {aparelho}?",
-                f"O que significa os LEDs piscando a cada 0.5s?"
+                f"Como calibrar o DPA por ignição no {aparelho}?",
+                "O que significam os LEDs piscando a cada 0.5s?",
+                "Quantas ignições para calibrar o ST340UR?"
             ]
         elif intencao == "leds_diagnostico":
             return [
                 "O que significa o LED vermelho piscando 4 vezes?",
-                "O que significa o LED azul piscando 3 vezes (comunicação)?",
-                "Como testar se o chip SIM card está conectado e com dados?"
-            ]
-        elif intencao == "jornada_trabalho":
-            return [
-                "Como calcular o fuso horário UTC na jornada de trabalho?",
-                "Qual comando SMS/GPRS para liberar hora extra no veículo?",
-                "Como configurar o alerta de violação de jornada (ALERT 188)?"
-            ]
-        elif intencao == "diferencas_modelos":
-            return [
-                "Quais modelos da linha ST310 possuem proteção estanque IP67?",
-                "Qual a diferença do ST8300R para o ST8300 comum?",
-                "O modelo ST310ULC possui função de bloqueio por Jammer?"
+                "O que significa o LED verde piscando rápido no GV50CG?",
+                "O que significa o LED azul piscando 7 vezes (SIM card)?"
             ]
         else:
             return [
-                f"Qual a pinagem completa do chicote do {aparelho}?",
-                f"Qual a senha de fábrica padrão para conectar no Synctrak?",
-                f"Como ligar o bloqueio na bomba de combustível com relé?"
+                "Qual o fio de pós-chave no ST340UR?",
+                "Como ligar o relé com diodo no Queclink GV50CG?",
+                "Qual a senha de fábrica padrão do Synctrak?"
             ]
 
 

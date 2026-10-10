@@ -799,12 +799,156 @@ Configuração de Cercas Virtuais no Synctrak:
      4. Com o BOTÃO ESQUERDO do mouse, clique nos pontos do mapa para desenhar o polígono.
      5. Clique em 'Enviar' para gravar no equipamento.
 """
+    },
+    # =========================================================================
+    # 7. QUECLINK GV50CG (GSM / GPRS / LTE CAT 1 GNSS TRACKER)
+    # =========================================================================
+    {
+        "id": "gv50cg_geral",
+        "device_family": "Queclink GV50CG",
+        "topic": "especificacoes",
+        "title": "Visão Geral e Especificações Técnicas (Queclink GV50CG)",
+        "keywords": ["queclink", "gv50cg", "gv50", "4g", "lte", "cat1", "cat 1", "gsm", "especificacoes", "tensao", "bateria", "9v a 90v", "antena", "anatel"],
+        "pages": "Págs. 1, 5, 6, 7",
+        "summary": "Micro rastreador GNSS e LTE Cat 1 com ampla faixa de tensão (9V a 90V) e antena interna de alto ganho.",
+        "content": """
+O Queclink GV50CG é um micro rastreador veicular de alta sensibilidade com tecnologia GNSS e comunicação celular LTE Cat 1 com fallback GSM/GPRS:
+- Tecnologia Celular: LTE Cat 1 (Bandas B1, B2, B3, B4, B5, B7, B8, B28, B66) com fallback EGPRS 850/900/1800/1900 MHz.
+- Tensão de Alimentação Contínua: DC 9V a 90V (compatível com motocicletas, veículos leves 12V, caminhões 24V e máquinas pesadas até 90V).
+- Bateria Backup Interna: Li-Polymer 190mAh / 3.7V recarregável com chave física interna liga/desliga (Power Switch).
+- Dimensões e Peso: 87.0 x 37.0 x 12.0 mm | Peso: ~48g.
+- Conector Principal: Cabo chicote tipo Pitch com conector de 5 pinos.
+- Entradas e Saídas:
+  * 1 Entrada de Ignição dedicada (Pós-Chave trigger positivo 5.0V a 32V).
+  * 1 Entrada Configurável (AIN/IN1): Analógica (0 a 16V) ou Digital negativa (trigger GND para botão de pânico).
+  * 1 Saída Digital Open-Drain (OUT): Negativo com corrente máxima de 150mA para acionamento de relé de bloqueio.
+- Antenas: Antena GNSS interna de alto ganho e antena celular LTE interna.
+- Orientação de Instalação: O lado sem LEDs possui a gravação 'THIS SIDE TOWARDS SKY' e DEVE ficar apontado para o céu.
+- Certificações: ANATEL, FCC, CE.
+"""
+    },
+    {
+        "id": "gv50cg_chicote",
+        "device_family": "Queclink GV50CG",
+        "topic": "fios_chicote",
+        "title": "Chicote e Pinagem de Fios - Queclink GV50CG (Conector 5 Vias)",
+        "keywords": ["queclink", "gv50cg", "gv50", "chicote", "pinagem", "fios", "cores", "laranja", "vermelho", "preto", "marrom", "branco", "ignicao", "bloqueio", "panico"],
+        "pages": "Págs. 10, 11",
+        "summary": "Pinagem completa do chicote de 5 vias do Queclink GV50CG.",
+        "content": """
+Chicote do Queclink GV50CG (Conector de 5 Vias):
+- Pino 1 - Fio Laranja: AIN / IN1 (Entrada Analógica 0 a 16V OU Entrada Digital 1 negativa GND). Usado tipicamente para Botão de Pânico / Emergência (ativo em 0 a 0.8V, inativo circuito aberto).
+- Pino 2 - Fio Vermelho: VIN (Alimentação Positiva Contínua DC 9V a 90V). Ligar à bateria permanente do veículo com fusível recomendado de 2A a 5A.
+- Pino 3 - Fio Preto: GND (Negativo / Terra). Ligar diretamente ao chassi metálico ou borne negativo da bateria.
+- Pino 4 - Fio Marrom: OUT (Saída Digital 1 de Bloqueio - Open-Drain GND, corrente máxima 150mA). Conectar ao pino 85 do relé de bloqueio. OBRIGATÓRIO utilizar relé com diodo de roda livre (ex: 1N4004) em paralelo com 85 e 86.
+- Pino 5 - Fio Branco: IGN (Entrada de Ignição / Pós-Chave - Trigger positivo). Conectar à linha 15 (pós-chave do veículo). Tensão de ativação: 5.0V a 32V (ativo), 0 a 3V ou circuito aberto (inativo).
+"""
+    },
+    {
+        "id": "gv50cg_bloqueio_rele",
+        "device_family": "Queclink GV50CG",
+        "topic": "bloqueio_rele",
+        "title": "Ligação do Relé de Bloqueio com Diodo (Queclink GV50CG)",
+        "keywords": ["queclink", "gv50cg", "rele", "bloqueio", "corte", "marrom", "diodo", "1n4004", "bomba", "combustivel", "ignicao"],
+        "pages": "Pág. 12",
+        "summary": "Esquema elétrico de bloqueio com Fio Marrom e diodo 1N4004 obrigatório na bobina do relé.",
+        "content": """
+Ligação do Relé de Bloqueio no Queclink GV50CG:
+A saída digital do GV50CG é o Fio Marrom (Open Drain / terra comutado, máx 150mA).
+IMPORTANTE: É OBRIGATÓRIO instalar um diodo de roda livre (ex: 1N4004) em paralelo com a bobina do relé (pinos 85 e 86) para absorver o pico de contratensão indutiva e proteger o circuito do rastreador contra queima.
+
+Esquema de Ligação nos Pinos do Relé (Padrão Automotivo 12V/24V):
+- Pino 85 do Relé: Conectar ao Fio Marrom do GV50CG (Saída OUT) e ao ÂNODO do diodo 1N4004 (lado sem listra).
+- Pino 86 do Relé: Conectar ao Pós-Chave (+12V/+24V) e ao CÁTODO do diodo 1N4004 (lado com a listra prateada/branca).
+- Pino 30 do Relé: Conectar em uma das pontas do fio cortado da bomba de combustível ou ignição.
+- Pino 87A do Relé (Normal Fechado - NF): Conectar na outra ponta do fio cortado da bomba de combustível ou ignição.
+- Pino 87 (Normal Aberto): Deixar isolado (não utilizado).
+
+Funcionamento: Enquanto o rastreador estiver em estado normal (desbloqueado), o contato entre 30 e 87A permanece fechado, permitindo o fluxo de corrente e partida do motor. Quando o comando de bloqueio é enviado, a saída Fio Marrom aterra o pino 85, a bobina atraca e abre o circuito entre 30 e 87A, cortando a bomba.
+"""
+    },
+    {
+        "id": "gv50cg_leds",
+        "device_family": "Queclink GV50CG",
+        "topic": "leds_diagnostico",
+        "title": "Diagnóstico dos LEDs Celular e GNSS (Queclink GV50CG)",
+        "keywords": ["queclink", "gv50cg", "led", "leds", "verde", "azul", "pisca", "piscando", "celular", "gnss", "gps", "pin", "fix"],
+        "pages": "Págs. 7, 8",
+        "summary": "Padrão de piscadas e diagnósticos dos LEDs Verde (Celular) e Azul (GNSS).",
+        "content": """
+O Queclink GV50CG possui 2 LEDs indicadores frontais de diagnóstico:
+
+1. LED CELULAR (Verde / Green):
+- Piscando Rápido (100ms Ligado / 800ms Desligado): Buscando sinal da rede celular (LTE Cat 1 / 2G).
+- Piscando Lento (100ms Ligado / 2000ms Desligado): Registrado na rede celular com sucesso (Conectado / Operação Normal).
+- Aceso Fixo (Continuously ON): Chip SIM bloqueado por PIN (o cartão SIM exige senha PIN para liberar). Solução: Coloque o chip em um smartphone e desative a trava de PIN nas configurações de segurança.
+- Apagado: Modem celular desligado ou rastreador sem alimentação elétrica.
+
+2. LED GNSS / GPS (Azul / Blue):
+- Aceso Fixo (Continuously ON): Fix GNSS obtido com sucesso (Posição GPS calculada e precisa).
+- Piscando Rápido (100ms Ligado / 100ms Desligado): Buscando sinal de satélites GNSS (sem posição fixada ainda).
+- Piscando Lento (600ms Ligado / 600ms Desligado): GNSS sem sinal ou erro nos dados de satélite.
+- Apagado: Receptor GNSS desligado.
+"""
+    },
+    {
+        "id": "gv50cg_instalacao_antena",
+        "device_family": "Queclink GV50CG",
+        "topic": "instalacao_eletrica",
+        "title": "Posicionamento da Antena e Instalação Física (Queclink GV50CG)",
+        "keywords": ["queclink", "gv50cg", "antena", "posicionamento", "this side towards sky", "instalacao", "ceu", "orientacao"],
+        "pages": "Págs. 14, 15",
+        "summary": "O lado sem LEDs com a gravação 'THIS SIDE TOWARDS SKY' deve apontar para o céu.",
+        "content": """
+Orientações de Instalação e Posicionamento do Queclink GV50CG:
+- Orientação da Antena Interna: O lado liso do rastreador (oposto aos LEDs) possui a gravação:
+  'THIS SIDE TOWARDS SKY' (Este lado voltado para o céu).
+  Este lado DEVE obrigatoriamente ficar apontado para cima (para o céu) para recepção adequada dos sinais GNSS.
+- Barreiras e Blindagens: Não instale o equipamento diretamente sob chapas metálicas, estruturas de aço ou blindagens térmicas metálicas do vidro. Superfícies plásticas do painel, carpete ou estofamento não bloqueiam o sinal.
+- Fixação: Utilize fita dupla-face automotiva de alta resistência (3M) ou abraçadeiras plásticas (enforca-gato) presas ao chicote fixo do veículo, garantindo que o aparelho não sofra vibração mecânica excessiva.
+- Fusível de Proteção: Sempre instale porta-fusível com fusível de 2A a 5A na linha de alimentação positiva (Fio Vermelho) o mais próximo possível do ponto de derivação da bateria.
+"""
+    },
+    {
+        "id": "gv50cg_sim_card",
+        "device_family": "Queclink GV50CG",
+        "topic": "chip_sim",
+        "title": "Instalação do Micro-SIM Card e Chave de Bateria (Queclink GV50CG)",
+        "keywords": ["queclink", "gv50cg", "sim", "chip", "micro sim", "bateria", "switch", "abrir", "chave", "pin"],
+        "pages": "Págs. 8, 9",
+        "summary": "Procedimento de inserção do Micro-SIM (3FF) e acionamento da chave interna da bateria.",
+        "content": """
+Instalação do Chip SIM Card e Chave Interna no Queclink GV50CG:
+1. Tamanho do Chip: O GV50CG utiliza padrão Micro-SIM (3FF).
+2. Abertura do Gabinete: Solte os parafusos da tampa traseira e abra a carcaça com cuidado para não danificar o anel de vedação.
+3. Inserção do SIM Card: Encaixe o chip Micro-SIM no slot correspondente com os contatos dourados voltados para baixo e empurre a trava metálica até travar com clique.
+4. Chave da Bateria Interna (Power Switch):
+   - Por padrão de fábrica para transporte, a chave da bateria interna vem na posição 'OFF'.
+   - Mude a chave da bateria para a posição 'ON'. Isso permite que a bateria de backup funcione caso a alimentação principal seja desconectada.
+5. Fechamento: Encaixe a carcaça superior na inferior e aperte os parafusos firmemente de forma homogênea.
+6. Validação do Chip: Certifique-se de que a senha/código PIN do chip esteja desativada e que haja plano de dados M2M/IoT ativo com APN configurada.
+"""
     }
+
 ]
 
 
 # Dicionário de sinônimos e mapeamentos de termos técnicos para normalização
 TECHNICAL_TERMS_MAP = {
+    "queclink": "gv50cg_geral",
+    "gv50cg": "gv50cg_geral",
+    "gv50": "gv50cg_geral",
+    "gv 50": "gv50cg_geral",
+    "diodo 1n4004": "bloqueio_rele",
+    "1n4004": "bloqueio_rele",
+    "diodo de roda livre": "bloqueio_rele",
+    "diodo rele": "bloqueio_rele",
+    "this side towards sky": "instalacao_eletrica",
+    "towards sky": "instalacao_eletrica",
+    "chave bateria": "chip_sim",
+    "power switch": "chip_sim",
+    "micro sim": "chip_sim",
+    "micro-sim": "chip_sim",
     "pos chave": "ignicao",
     "pos-chave": "ignicao",
     "poschave": "ignicao",
