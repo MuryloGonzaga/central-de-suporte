@@ -68,12 +68,20 @@ async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(defa
     )
 
 @app.post("/login", response_class=HTMLResponse)
-async def processar_login(
-    request: Request,
-    username: str = Form(...),
-    password: str = Form(...)
-):
+async def processar_login(request: Request):
     """Processa o formulário de login via API WebRota."""
+    username = ""
+    password = ""
+    try:
+        form = await request.form()
+        username = str(form.get("username", "")).strip()
+        password = str(form.get("password", "")).strip()
+    except Exception:
+        body = await request.body()
+        from urllib.parse import parse_qs
+        dados = parse_qs(body.decode("utf-8", errors="ignore"))
+        username = dados.get("username", [""])[0].strip()
+        password = dados.get("password", [""])[0].strip()
     usuario = await AuthService.autenticar(username, password)
     if not usuario:
         return templates.TemplateResponse(
