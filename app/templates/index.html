@@ -10,6 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Favicon Oficial WebRota -->
+    <link rel="icon" type="image/png" href="/static/images/webrota-icon.png">
     <!-- Custom CSS -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -18,61 +20,61 @@
         <!-- Sidebar de Navegação -->
         <aside class="sidebar">
             <div class="sidebar-header">
-                <div class="brand-logo">
-                    <i class="fa-solid fa-satellite-dish"></i>
-                </div>
                 <div class="brand-info">
-                    <h2>Central de Suporte</h2>
-                    <span>Rastreamento & WebRota</span>
+                    <img src="/static/images/webrota-logo-darkbg.png" alt="WebRota" height="32" class="brand-title-logo">
+                    <span>Central de Suporte</span>
                 </div>
             </div>
 
             <nav class="sidebar-nav">
-                <button class="nav-item nav-item-ia" data-tab="tab-chat">
+                <button class="nav-item{% if aba_inicial == 'tab-home' %} active{% endif %}" data-tab="tab-home">
+                    <i class="fa-solid fa-house"></i>
+                    <span>Início</span>
+                </button>
+                <button class="nav-item nav-item-ia{% if aba_inicial == 'tab-chat' %} active{% endif %}" data-tab="tab-chat">
                     <i class="fa-solid fa-brain"></i>
                     <span>Chat IA (Manuais)</span>
                     <span class="badge-nav-ia">Neural</span>
                 </button>
-                <button class="nav-item active" data-tab="tab-placa">
+                <button class="nav-item{% if aba_inicial == 'tab-placa' %} active{% endif %}" data-tab="tab-placa">
                     <i class="fa-solid fa-car-side"></i>
                     <span>Consulta Placa (AcheCar)</span>
                 </button>
-                <button class="nav-item" data-tab="tab-veiculo">
+                <button class="nav-item{% if aba_inicial == 'tab-veiculo' %} active{% endif %}" data-tab="tab-veiculo">
                     <i class="fa-solid fa-truck-pickup"></i>
                     <span>Veículo WebRota</span>
                 </button>
-                <button class="nav-item" data-tab="tab-local">
+                <button class="nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
                     <i class="fa-solid fa-map-location-dot"></i>
                     <span>Local de Instalação</span>
                 </button>
-                <button class="nav-item" data-tab="tab-ranking">
+                <button class="nav-item{% if aba_inicial == 'tab-ranking' %} active{% endif %}" data-tab="tab-ranking">
                     <i class="fa-solid fa-trophy"></i>
                     <span>Rankings de OS</span>
                 </button>
-                <button class="nav-item" data-tab="tab-cabos">
+                <button class="nav-item{% if aba_inicial == 'tab-cabos' %} active{% endif %}" data-tab="tab-cabos">
                     <i class="fa-solid fa-plug"></i>
                     <span>Guia de Cabos</span>
                 </button>
-                <button class="nav-item" data-tab="tab-leds">
+                <button class="nav-item{% if aba_inicial == 'tab-leds' %} active{% endif %}" data-tab="tab-leds">
                     <i class="fa-solid fa-lightbulb"></i>
                     <span>Diagnóstico de LEDs</span>
                 </button>
             </nav>
 
             <div class="sidebar-footer">
-                <div class="status-indicator-box" id="neural-status-badge" style="margin-bottom: 8px;">
-                    <div class="status-dot success"></div>
-                    <div class="status-info">
-                        <strong>Rede Neural</strong>
-                        <span id="neural-status-text">Manuais Carregados</span>
+                <!-- Usuário logado + Logout -->
+                <div class="sidebar-user-box">
+                    <div class="sidebar-user-info">
+                        <i class="fa-solid fa-user-circle"></i>
+                        <div>
+                            <strong>{{ usuario.nome }}</strong>
+                            <small>{{ usuario.perfil | title }}</small>
+                        </div>
                     </div>
-                </div>
-                <div class="status-indicator-box" id="webrota-status-badge">
-                    <div class="status-dot warning"></div>
-                    <div class="status-info">
-                        <strong>WebRota</strong>
-                        <span id="webrota-status-text">Verificando...</span>
-                    </div>
+                    <a href="/logout" class="btn-logout-sidebar" title="Encerrar sessão">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </a>
                 </div>
             </div>
         </aside>
@@ -85,49 +87,111 @@
                     <i class="fa-solid fa-bars"></i>
                 </button>
                 <div class="topbar-title">
-                    <h1 id="page-title">Consulta de Placa (Base Pública AcheCar)</h1>
-                </div>
-                <div class="topbar-actions">
-                    <button class="btn-icon" id="btn-refresh-status" title="Recarregar Status da Conexão WebRota">
-                        <i class="fa-solid fa-rotate"></i>
-                    </button>
-                    <a href="/docs" target="_blank" class="btn-api-docs" title="Ver Documentação da API Swagger">
-                        <i class="fa-solid fa-code"></i>
-                        <span>API Docs</span>
-                    </a>
+                    <h1 id="page-title">Bem-vindo à Central de Suporte</h1>
                 </div>
             </header>
 
             <div class="tab-container">
 
+                <!-- TAB HOME: BEM-VINDO -->
+                <section class="tab-pane{% if aba_inicial == 'tab-home' %} active{% endif %}" id="tab-home">
+                    <div class="welcome-container">
+                        <div class="welcome-hero">
+                            <div style="margin-bottom: 20px;">
+                                <img src="/static/images/webrota-logo-darkbg.png" alt="WebRota" height="54" style="object-fit: contain;">
+                            </div>
+                            <h2>Olá, <span class="text-orange">{{ usuario.nome }}</span>!</h2>
+                            <p class="welcome-subtitle">Bem-vindo à Central de Suporte WebRota. Utilize os recursos abaixo para consultas, diagnósticos e suporte técnico.</p>
+                        </div>
+
+                        <div class="welcome-cards-grid">
+                            <div class="welcome-action-card" data-goto="tab-chat">
+                                <div class="wac-icon bg-purple"><i class="fa-solid fa-brain"></i></div>
+                                <div class="wac-info">
+                                    <h4>Chat IA — Manuais</h4>
+                                    <p>Tire dúvidas sobre instalação e configuração de rastreadores com a rede neural.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-placa">
+                                <div class="wac-icon bg-blue"><i class="fa-solid fa-car-side"></i></div>
+                                <div class="wac-info">
+                                    <h4>Consulta de Placas</h4>
+                                    <p>Busque dados públicos de veículos pela placa na base AcheCar.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-local">
+                                <div class="wac-icon bg-green"><i class="fa-solid fa-map-location-dot"></i></div>
+                                <div class="wac-info">
+                                    <h4>Local de Instalação</h4>
+                                    <p>Rastreie onde o equipamento foi instalado na última OS executada.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-ranking">
+                                <div class="wac-icon bg-gold"><i class="fa-solid fa-trophy"></i></div>
+                                <div class="wac-info">
+                                    <h4>Rankings de OS</h4>
+                                    <p>Acompanhe o ranking diário e mensal de execuções dos técnicos.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-veiculo">
+                                <div class="wac-icon bg-cyan"><i class="fa-solid fa-truck-pickup"></i></div>
+                                <div class="wac-info">
+                                    <h4>Veículo WebRota</h4>
+                                    <p>Consulte marca e modelo cadastrados diretamente no sistema WebRota.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-cabos">
+                                <div class="wac-icon bg-red"><i class="fa-solid fa-plug"></i></div>
+                                <div class="wac-info">
+                                    <h4>Guia de Cabos</h4>
+                                    <p>Consulte o padrão de cores dos chicotes para instalação dos rastreadores.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <!-- TAB 1: CONSULTA PLACA (ACHECAR) -->
-                <section class="tab-pane active" id="tab-placa">
+                <section class="tab-pane{% if aba_inicial == 'tab-placa' %} active{% endif %}" id="tab-placa">
                     <div class="card">
                         <div class="card-header">
                             <div>
                                 <h3><i class="fa-solid fa-magnifying-glass"></i> Consulta Pública de Veículos</h3>
-                                <p class="card-subtitle">Busca dados completos (Marca, Modelo, Ano, Cor, Tipo, Combustível, Município/UF) na base pública AcheCar. Suporta busca individual ou em massa.</p>
+                                <p class="card-subtitle">Busca dados completos (Marca, Modelo, Ano, Cor, Tipo, Combustível, Município/UF) na base pública AcheCar. Intervalo seguro de ~3s entre consultas é aplicado automaticamente.</p>
                             </div>
                         </div>
                         <div class="card-body">
                             <div class="form-group">
                                 <label for="input-placas-achecar">Digite ou Cole as Placas:</label>
                                 <textarea id="input-placas-achecar" rows="4" placeholder="Exemplo:&#10;ABC1D23&#10;XYZ-9876&#10;ou separe por espaços/vírgulas"></textarea>
-                                <small class="form-hint">Dica: Você pode colar até dezenas de placas de uma vez só (uma por linha).</small>
+                                <small class="form-hint">Dica: Você pode colar até dezenas de placas de uma vez só (uma por linha). O sistema aplica intervalo seguro automaticamente.</small>
                             </div>
 
                             <div class="form-actions">
-                                <div class="checkbox-group">
-                                    <input type="checkbox" id="check-intervalo-achecar" checked>
-                                    <label for="check-intervalo-achecar">Intervalo suave contra bloqueios da API pública (~3s por placa)</label>
-                                </div>
                                 <div class="btn-group">
                                     <button class="btn btn-secondary" onclick="limparCampo('input-placas-achecar', 'resultado-achecar')">
                                         <i class="fa-solid fa-eraser"></i> Limpar
                                     </button>
-                                    <button class="btn btn-primary" id="btn-consultar-achecar" onclick="consultarAcheCar()">
+                                    <button class="btn btn-primary" id="btn-consultar-achecar" onclick="consultarAcheCarStream()">
                                         <i class="fa-solid fa-search"></i> Consultar Placas
                                     </button>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Progresso AcheCar -->
+                            <div class="progress-bar-wrapper" id="progress-achecar" style="display: none;">
+                                <div class="progress-info-row">
+                                    <span class="progress-status-text" id="progress-achecar-text">Preparando consulta...</span>
+                                    <span class="progress-percent" id="progress-achecar-pct">0%</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="progress-achecar-fill" style="width: 0%;"></div>
                                 </div>
                             </div>
                         </div>
@@ -167,7 +231,7 @@
                 </section>
 
                 <!-- TAB 2: VEÍCULO WEBROTA -->
-                <section class="tab-pane" id="tab-veiculo">
+                <section class="tab-pane{% if aba_inicial == 'tab-veiculo' %} active{% endif %}" id="tab-veiculo">
                     <div class="card">
                         <div class="card-header">
                             <div>
@@ -222,7 +286,7 @@
                 </section>
 
                 <!-- TAB 3: LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO) -->
-                <section class="tab-pane" id="tab-local">
+                <section class="tab-pane{% if aba_inicial == 'tab-local' %} active{% endif %}" id="tab-local">
                     <div class="card">
                         <div class="card-header">
                             <div>
@@ -239,9 +303,20 @@
                                 <button class="btn btn-secondary" onclick="limparCampo('input-locais', 'resultado-local')">
                                     <i class="fa-solid fa-eraser"></i> Limpar
                                 </button>
-                                <button class="btn btn-primary" id="btn-consultar-local" onclick="consultarLocalInstalacao()">
+                                <button class="btn btn-primary" id="btn-consultar-local" onclick="consultarLocalInstalacaoStream()">
                                     <i class="fa-solid fa-location-crosshairs"></i> Buscar Locais de Instalação
                                 </button>
+                            </div>
+
+                            <!-- Barra de Progresso Local -->
+                            <div class="progress-bar-wrapper" id="progress-local" style="display: none;">
+                                <div class="progress-info-row">
+                                    <span class="progress-status-text" id="progress-local-text">Preparando busca...</span>
+                                    <span class="progress-percent" id="progress-local-pct">0%</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="progress-local-fill" style="width: 0%;"></div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -259,26 +334,16 @@
                                 </button>
                             </div>
                         </div>
-                        <div class="card-body no-padding table-responsive">
-                            <table class="data-table" id="tabela-local">
-                                <thead>
-                                    <tr>
-                                        <th>Identificador / Placa</th>
-                                        <th>Serial do Rastreador</th>
-                                        <th>Local de Instalação (Última OS)</th>
-                                        <th>Data da Execução</th>
-                                        <th>Status OS</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-local">
-                                </tbody>
-                            </table>
+                        <div class="card-body no-padding">
+                            <div id="locais-cards-container">
+                                <!-- Preenchido via JS (cards ao invés de tabela para suportar multi-equipamento) -->
+                            </div>
                         </div>
                     </div>
                 </section>
 
                 <!-- TAB 4: RANKINGS DE OS -->
-                <section class="tab-pane" id="tab-ranking">
+                <section class="tab-pane{% if aba_inicial == 'tab-ranking' %} active{% endif %}" id="tab-ranking">
                     <div class="rankings-grid">
                         <!-- Ranking Diário -->
                         <div class="card ranking-card">
@@ -289,9 +354,7 @@
                                 </div>
                                 <div class="ranking-filter">
                                     <input type="date" id="data-filtro-ranking" class="date-input">
-                                    <button class="btn btn-sm btn-secondary" onclick="carregarRankingDiario()">
-                                        <i class="fa-solid fa-arrows-rotate"></i>
-                                    </button>
+                                    <span class="ranking-janela-badge" id="badge-janela-diario" title="Janela de atualização automática: 08:00 às 18:00"></span>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -303,6 +366,10 @@
                                     <div class="stat-box">
                                         <span class="stat-label">Data de Consulta</span>
                                         <span class="stat-value text-small" id="data-label-diario">--</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">Próxima Atualização</span>
+                                        <span class="stat-value text-small" id="proxima-att-diario">--</span>
                                     </div>
                                 </div>
 
@@ -321,9 +388,7 @@
                                     <h3><i class="fa-solid fa-calendar-check text-primary"></i> Ranking Mensal de Técnicos</h3>
                                     <p class="card-subtitle">Comparativo oficial de execuções (Túlio x Kaio)</p>
                                 </div>
-                                <button class="btn btn-sm btn-secondary" onclick="carregarRankingMensal()">
-                                    <i class="fa-solid fa-arrows-rotate"></i>
-                                </button>
+                                <span class="ranking-janela-badge" id="badge-janela-mensal" title="Janela de atualização automática: 08:00 às 18:00"></span>
                             </div>
                             <div class="card-body">
                                 <div class="stats-summary" id="stats-mensal">
@@ -334,6 +399,10 @@
                                     <div class="stat-box">
                                         <span class="stat-label">Total Executado</span>
                                         <span class="stat-value" id="total-os-mensal">--</span>
+                                    </div>
+                                    <div class="stat-box">
+                                        <span class="stat-label">Próxima Atualização</span>
+                                        <span class="stat-value text-small" id="proxima-att-mensal">--</span>
                                     </div>
                                 </div>
 
@@ -348,7 +417,7 @@
                 </section>
 
                 <!-- TAB 5: GUIA DE CABOS -->
-                <section class="tab-pane" id="tab-cabos">
+                <section class="tab-pane{% if aba_inicial == 'tab-cabos' %} active{% endif %}" id="tab-cabos">
                     <div class="card">
                         <div class="card-header">
                             <div>
@@ -382,7 +451,7 @@
                 </section>
 
                 <!-- TAB 6: DIAGNÓSTICO DE LEDS -->
-                <section class="tab-pane" id="tab-leds">
+                <section class="tab-pane{% if aba_inicial == 'tab-leds' %} active{% endif %}" id="tab-leds">
                     <div class="card">
                         <div class="card-header">
                             <div>
@@ -398,7 +467,7 @@
                                         <div class="led-bulb led-blue-pulse"></div>
                                         <div>
                                             <h4>LED AZUL</h4>
-                                            <span>GPRS & Comunicação de Rede</span>
+                                            <span>GPRS &amp; Comunicação de Rede</span>
                                         </div>
                                     </div>
                                     <div class="led-card-body">
@@ -425,7 +494,7 @@
                                         <div class="led-bulb led-red-pulse"></div>
                                         <div>
                                             <h4>LED VERMELHO</h4>
-                                            <span>GPS & Sinal de Satélite</span>
+                                            <span>GPS &amp; Sinal de Satélite</span>
                                         </div>
                                     </div>
                                     <div class="led-card-body">
@@ -451,7 +520,7 @@
                 </section>
 
                 <!-- TAB 0: CHAT IA - MANUAIS DOS APARELHOS -->
-                <section class="tab-pane" id="tab-chat">
+                <section class="tab-pane{% if aba_inicial == 'tab-chat' %} active{% endif %}" id="tab-chat">
                     <div class="chat-wrapper">
                         <!-- Topo do Chat com Filtro de Aparelho e Status da Rede Neural -->
                         <div class="chat-header-panel">
@@ -508,11 +577,11 @@
                             <div class="category-tabs-row" id="prompt-category-tabs">
                                 <button type="button" class="cat-tab-btn active" data-cat="frequentes"><i class="fa-solid fa-star"></i> Mais Frequentes</button>
                                 <button type="button" class="cat-tab-btn" data-cat="gv50cg"><i class="fa-solid fa-microchip"></i> Queclink GV50CG</button>
-                                <button type="button" class="cat-tab-btn" data-cat="fios"><i class="fa-solid fa-plug"></i> Fios & Chicotes</button>
+                                <button type="button" class="cat-tab-btn" data-cat="fios"><i class="fa-solid fa-plug"></i> Fios &amp; Chicotes</button>
                                 <button type="button" class="cat-tab-btn" data-cat="dpa"><i class="fa-solid fa-gauge"></i> Calibração DPA</button>
-                                <button type="button" class="cat-tab-btn" data-cat="rele"><i class="fa-solid fa-power-off"></i> Relé 5 Pinos & Bloqueio</button>
+                                <button type="button" class="cat-tab-btn" data-cat="rele"><i class="fa-solid fa-power-off"></i> Relé 5 Pinos &amp; Bloqueio</button>
                                 <button type="button" class="cat-tab-btn" data-cat="leds"><i class="fa-solid fa-lightbulb"></i> Diagnóstico de LEDs</button>
-                                <button type="button" class="cat-tab-btn" data-cat="synctrak"><i class="fa-solid fa-gear"></i> Synctrak & Senhas</button>
+                                <button type="button" class="cat-tab-btn" data-cat="synctrak"><i class="fa-solid fa-gear"></i> Synctrak &amp; Senhas</button>
                             </div>
                         </div>
 
@@ -589,4 +658,3 @@
     <script src="/static/js/app.js"></script>
 </body>
 </html>
-

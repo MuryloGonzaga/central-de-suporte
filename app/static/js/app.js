@@ -5,7 +5,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     initNavigation();
     initMobileMenu();
-    verificarStatusWebrota();
     initChatIA();
 
     // Define data padrão de hoje no seletor de rankings
@@ -31,6 +30,7 @@ function initNavigation() {
     const pageTitle = document.getElementById('page-title');
 
     const titulos = {
+        'tab-home': 'Bem-vindo à Central de Suporte WebRota',
         'tab-chat': 'Assistente Técnico IA - Manuais Suntech',
         'tab-placa': 'Consulta de Placa (Base Pública AcheCar)',
         'tab-veiculo': 'Consulta de Veículo no Cadastro WebRota',
@@ -69,13 +69,15 @@ function initNavigation() {
         });
     });
 
-    // Botão de refresh de status
-    const btnRefresh = document.getElementById('btn-refresh-status');
-    if (btnRefresh) {
-        btnRefresh.addEventListener('click', () => {
-            verificarStatusWebrota();
+    // Atalhos dos cards na aba de boas-vindas
+    document.querySelectorAll('.welcome-action-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const gotoTab = card.getAttribute('data-goto');
+            const navBtn = document.querySelector(`.nav-item[data-tab="${gotoTab}"]`);
+            if (navBtn) navBtn.click();
         });
-    }
+    });
+
 }
 
 function initMobileMenu() {
@@ -89,47 +91,52 @@ function initMobileMenu() {
 }
 
 // --------------------------------------------------------------------
-// VERIFICAÇÃO DE STATUS DA WEBROTA
+// TAB 1: CONSULTA ACHECAR (BASE PÚBLICA COM STREAMING & PROGRESSO)
 // --------------------------------------------------------------------
-async function verificarStatusWebrota() {
-    const dot = document.querySelector('#webrota-status-badge .status-dot');
-    const text = document.getElementById('webrota-status-text');
+let acheCarEventSource = null;
 
-    if (!dot || !text) return;
+function adicionarLinhaAcheCar(item) {
+    const tbody = document.getElementById('tbody-achecar');
+    const countSpan = document.getElementById('count-achecar');
+    if (!tbody) return;
 
-    dot.className = 'status-dot warning';
-    text.textContent = 'Verificando...';
+    const tr = document.createElement('tr');
+    if (item.sucesso) {
+        tr.innerHTML = `
+            <td><span class="tag-placa">${item.placa}</span></td>
+            <td><strong>${item.marca || 'N/A'}</strong> ${item.modelo || ''}</td>
+            <td>${item.ano_fabricacao || 'N/A'} / ${item.ano_modelo || 'N/A'}</td>
+            <td>${item.cor || 'N/A'}</td>
+            <td>${item.tipo_veiculo || 'N/A'} - ${item.combustivel || 'N/A'}</td>
+            <td>${item.municipio || 'N/A'} / ${item.uf || 'N/A'}</td>
+            <td><span class="badge badge-success"><i class="fa-solid fa-check"></i> Encontrado</span></td>
+        `;
+    } else {
+        tr.innerHTML = `
+            <td><span class="tag-placa">${item.placa}</span></td>
+            <td colspan="5" style="color: #F87171;">${item.erro || 'Não foi possível consultar os dados.'}</td>
+            <td><span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Falha</span></td>
+        `;
+    }
+    tbody.appendChild(tr);
 
-    try {
-        const resp = await fetch('/api/status');
-        const data = await resp.json();
-
-        if (data.webrota && data.webrota.conectado) {
-            dot.className = 'status-dot success';
-            text.textContent = 'Conectado (' + (data.webrota.usuario || 'Ativo') + ')';
-        } else if (data.webrota && data.webrota.configurado === false) {
-            dot.className = 'status-dot warning';
-            text.textContent = 'Credenciais não configuradas (.env)';
-        } else {
-            dot.className = 'status-dot danger';
-            text.textContent = 'Falha de Login';
-        }
-    } catch (err) {
-        dot.className = 'status-dot danger';
-        text.textContent = 'Servidor Offline';
+    if (countSpan) {
+        const totalLinhas = tbody.querySelectorAll('tr').length;
+        countSpan.textContent = totalLinhas;
     }
 }
 
-// --------------------------------------------------------------------
-// TAB 1: CONSULTA ACHECAR (BASE PÚBLICA)
-// --------------------------------------------------------------------
-async function consultarAcheCar() {
+async function consultarAcheCarStream() {
     const input = document.getElementById('input-placas-achecar');
-    const intervalo = document.getElementById('check-intervalo-achecar').checked;
     const btn = document.getElementById('btn-consultar-achecar');
     const resultCard = document.getElementById('resultado-achecar');
     const tbody = document.getElementById('tbody-achecar');
     const countSpan = document.getElementById('count-achecar');
+
+    const progressWrapper = document.getElementById('progress-achecar');
+    const progressText = document.getElementById('progress-achecar-text');
+    const progressPct = document.getElementById('progress-achecar-pct');
+    const progressFill = document.getElementById('progress-achecar-fill');
 
     const texto = input.value.trim();
     if (!texto) {
@@ -137,65 +144,83 @@ async function consultarAcheCar() {
         return;
     }
 
+    if (acheCarEventSource) {
+        acheCarEventSource.close();
+        acheCarEventSource = null;
+    }
+
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
     resultCard.style.display = 'block';
-    tbody.innerHTML = '<tr><td colspan="7" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Consultando placas na base pública...</td></tr>';
+    tbody.innerHTML = '';
+    if (countSpan) countSpan.textContent = '0';
+
+    if (progressWrapper) {
+        progressWrapper.style.display = 'block';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressPct) progressPct.textContent = '0%';
+        if (progressText) progressText.textContent = 'Iniciando consulta suave e segura...';
+    }
 
     try {
-        const resp = await fetch('/api/consulta/placa', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ placas: texto, intervalo_seguro: intervalo })
-        });
-        const data = await resp.json();
+        const url = `/api/consulta/placa/stream?placas=${encodeURIComponent(texto)}`;
+        acheCarEventSource = new EventSource(url);
 
-        if (!data.sucesso && (!data.resultados || data.resultados.length === 0)) {
-            tbody.innerHTML = `<tr><td colspan="7" class="empty-state">${data.mensagem || 'Nenhum resultado encontrado.'}</td></tr>`;
-            countSpan.textContent = '0';
-            showToast(data.mensagem || 'Erro na consulta.', 'error');
-            return;
-        }
+        acheCarEventSource.onmessage = (event) => {
+            if (!event.data) return;
+            try {
+                const data = JSON.parse(event.data);
 
-        tbody.innerHTML = '';
-        const resultados = data.resultados || [];
-        countSpan.textContent = resultados.length;
+                if (data.tipo === 'inicio') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                } else if (data.tipo === 'consultando') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                    if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                    if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                } else if (data.tipo === 'progresso') {
+                    if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                    if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                    if (data.resultado) {
+                        adicionarLinhaAcheCar(data.resultado);
+                    }
+                } else if (data.tipo === 'pausa') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                } else if (data.tipo === 'alerta') {
+                    showToast(data.mensagem, 'warning');
+                } else if (data.tipo === 'concluido' || data.tipo === 'erro') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                    if (progressPct) progressPct.textContent = '100%';
+                    if (progressFill) progressFill.style.width = '100%';
 
-        resultados.forEach(item => {
-            const tr = document.createElement('tr');
-            if (item.sucesso) {
-                tr.innerHTML = `
-                    <td><span class="tag-placa">${item.placa}</span></td>
-                    <td><strong>${item.marca || 'N/A'}</strong> ${item.modelo || ''}</td>
-                    <td>${item.ano_fabricacao || 'N/A'} / ${item.ano_modelo || 'N/A'}</td>
-                    <td>${item.cor || 'N/A'}</td>
-                    <td>${item.tipo_veiculo || 'N/A'} - ${item.combustivel || 'N/A'}</td>
-                    <td>${item.municipio || 'N/A'} / ${item.uf || 'N/A'}</td>
-                    <td><span class="badge badge-success"><i class="fa-solid fa-check"></i> Encontrado</span></td>
-                `;
-            } else {
-                tr.innerHTML = `
-                    <td><span class="tag-placa">${item.placa}</span></td>
-                    <td colspan="5" style="color: #F87171;">${item.erro || 'Não foi possível consultar os dados.'}</td>
-                    <td><span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Falha</span></td>
-                `;
+                    acheCarEventSource.close();
+                    acheCarEventSource = null;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-search"></i> Consultar Placas';
+
+                    showToast(data.mensagem, data.tipo === 'erro' ? 'error' : 'success');
+                }
+            } catch (err) {
+                console.error('Erro ao processar evento SSE AcheCar:', err);
             }
-            tbody.appendChild(tr);
-        });
+        };
 
-        if (data.bloqueio_detectado) {
-            showToast('Aviso: Limite de requisições atingido na API pública.', 'warning');
-        } else {
-            showToast(`${resultados.length} placa(s) processada(s) com sucesso!`, 'success');
-        }
+        acheCarEventSource.onerror = (err) => {
+            console.error('Erro na conexão SSE AcheCar:', err);
+            if (acheCarEventSource) {
+                acheCarEventSource.close();
+                acheCarEventSource = null;
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-search"></i> Consultar Placas';
+            if (progressText) progressText.textContent = 'Consulta finalizada.';
+        };
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">Erro de comunicação com o servidor: ${err.message}</td></tr>`;
-        showToast('Erro de conexão ao consultar placas.', 'error');
-    } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-search"></i> Consultar Placas';
+        showToast(`Erro ao iniciar consulta: ${err.message}`, 'error');
     }
 }
+window.consultarAcheCar = consultarAcheCarStream;
 
 // --------------------------------------------------------------------
 // TAB 2: CONSULTA WEBROTA (VEÍCULO)
@@ -267,13 +292,76 @@ async function consultarVeiculosWebrota() {
 }
 
 // --------------------------------------------------------------------
-// TAB 3: CONSULTA LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO)
+// TAB 3: CONSULTA LOCAL DE INSTALAÇÃO (COM PROGRESSO & BLOCO ÚNICO PARA 2 EQUIPAMENTOS)
 // --------------------------------------------------------------------
-async function consultarLocalInstalacao() {
+function adicionarCardLocal(item) {
+    const container = document.getElementById('locais-cards-container');
+    if (!container) return;
+
+    const card = document.createElement('div');
+    card.className = 'local-result-card';
+
+    if (item.sucesso && item.seriais && item.seriais.length > 0) {
+        const badgeMulti = item.possui_multiplos_equipamentos
+            ? `<span class="local-multi-badge"><i class="fa-solid fa-layer-group"></i> ${item.total_equipamentos} Equipamentos Vinculados</span>`
+            : '';
+
+        let seriaisHtml = '';
+        item.seriais.forEach((ser, idx) => {
+            const labelEquip = item.possui_multiplos_equipamentos ? `Equipamento ${ser.numero_equipamento || (idx + 1)}` : 'Equipamento Único';
+            const dataFormatada = ser.data_execucao ? formatarDataIso(ser.data_execucao) : 'Sem data';
+            const badgeClass = ser.possui_os ? 'badge-success' : 'badge-warning';
+            const statusText = ser.status ? `Status (${ser.status})` : 'Sem OS Válida';
+
+            seriaisHtml += `
+                <div class="local-equip-item">
+                    <div class="equip-label">${labelEquip}</div>
+                    <div class="equip-serial"><i class="fa-solid fa-microchip"></i> Serial: <strong>${ser.serial}</strong></div>
+                    <div class="equip-local"><i class="fa-solid fa-location-dot" style="color: #F97316;"></i> ${ser.local}</div>
+                    <div class="equip-meta" style="margin-top: 6px; display: flex; align-items: center; justify-content: space-between;">
+                        <span><i class="fa-regular fa-calendar"></i> ${dataFormatada}</span>
+                        <span class="badge ${badgeClass}">${statusText}</span>
+                    </div>
+                </div>
+            `;
+        });
+
+        card.innerHTML = `
+            <div class="local-card-header">
+                <div>
+                    <span class="tag-placa">${item.identificador}</span>
+                </div>
+                <div>${badgeMulti}</div>
+            </div>
+            <div class="local-equipamentos-grid">
+                ${seriaisHtml}
+            </div>
+        `;
+    } else {
+        card.innerHTML = `
+            <div class="local-card-header">
+                <span class="tag-placa">${item.identificador}</span>
+                <span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Não Localizado</span>
+            </div>
+            <div class="local-error-text">
+                ${item.erro || 'Sem dispositivo vinculado ou não encontrado na base WebRota.'}
+            </div>
+        `;
+    }
+
+    container.appendChild(card);
+}
+
+async function consultarLocalInstalacaoStream() {
     const input = document.getElementById('input-locais');
     const btn = document.getElementById('btn-consultar-local');
     const resultCard = document.getElementById('resultado-local');
-    const tbody = document.getElementById('tbody-local');
+    const container = document.getElementById('locais-cards-container');
+
+    const progressWrapper = document.getElementById('progress-local');
+    const progressText = document.getElementById('progress-local-text');
+    const progressPct = document.getElementById('progress-local-pct');
+    const progressFill = document.getElementById('progress-local-fill');
 
     const texto = input.value.trim();
     if (!texto) {
@@ -284,68 +372,88 @@ async function consultarLocalInstalacao() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rastreando OS...';
     resultCard.style.display = 'block';
-    tbody.innerHTML = '<tr><td colspan="5" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Localizando seriais e histórico de OS na WebRota...</td></tr>';
+    container.innerHTML = '';
+
+    if (progressWrapper) {
+        progressWrapper.style.display = 'block';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressPct) progressPct.textContent = '0%';
+        if (progressText) progressText.textContent = 'Iniciando busca de locais...';
+    }
 
     try {
-        const resp = await fetch('/api/consulta/local', {
+        const response = await fetch('/api/consulta/local/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identificadores: texto })
         });
-        const data = await resp.json();
 
-        if (!data.sucesso || !data.resultados || data.resultados.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" class="empty-state">${data.mensagem || 'Nenhum registro encontrado.'}</td></tr>`;
-            showToast(data.mensagem || 'Falha na busca.', 'error');
-            return;
+        if (!response.ok) {
+            throw new Error(`Erro no servidor: ${response.status}`);
         }
 
-        tbody.innerHTML = '';
-        data.resultados.forEach(item => {
-            if (item.sucesso && item.seriais && item.seriais.length > 0) {
-                item.seriais.forEach(ser => {
-                    const tr = document.createElement('tr');
-                    const dataFormatada = ser.data_execucao ? formatarDataIso(ser.data_execucao) : 'Sem data';
-                    const badgeClass = ser.possui_os ? 'badge-success' : 'badge-warning';
-                    const statusText = ser.status ? `Status (${ser.status})` : 'Sem OS Válida';
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
 
-                    tr.innerHTML = `
-                        <td><span class="tag-placa">${item.identificador}</span></td>
-                        <td><code style="color: #60A5FA;">${ser.serial}</code></td>
-                        <td><strong>${ser.local}</strong></td>
-                        <td>${dataFormatada}</td>
-                        <td><span class="badge ${badgeClass}">${statusText}</span></td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } else {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><span class="tag-placa">${item.identificador}</span></td>
-                    <td colspan="3" style="color: #94A3B8;">${item.erro || 'Sem dispositivo vinculado ou não encontrado.'}</td>
-                    <td><span class="badge badge-danger"><i class="fa-solid fa-ban"></i> Não Localizado</span></td>
-                `;
-                tbody.appendChild(tr);
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const linhas = buffer.split('\n\n');
+            buffer = linhas.pop() || '';
+
+            for (const linha of linhas) {
+                const trimmed = linha.trim();
+                if (trimmed.startsWith('data:')) {
+                    try {
+                        const jsonStr = trimmed.replace(/^data:\s*/, '');
+                        const data = JSON.parse(jsonStr);
+
+                        if (data.tipo === 'inicio') {
+                            if (progressText) progressText.textContent = data.mensagem;
+                        } else if (data.tipo === 'consultando') {
+                            if (progressText) progressText.textContent = data.mensagem;
+                            if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                            if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                        } else if (data.tipo === 'progresso') {
+                            if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                            if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                            if (data.resultado) {
+                                adicionarCardLocal(data.resultado);
+                            }
+                        } else if (data.tipo === 'concluido' || data.tipo === 'erro') {
+                            if (progressText) progressText.textContent = data.mensagem;
+                            if (progressPct) progressPct.textContent = '100%';
+                            if (progressFill) progressFill.style.width = '100%';
+                            showToast(data.mensagem, data.tipo === 'erro' ? 'error' : 'success');
+                        }
+                    } catch (parseErr) {
+                        console.error('Erro de decodificação no evento:', parseErr);
+                    }
+                }
             }
-        });
-
-        showToast('Consulta de locais finalizada com sucesso!', 'success');
+        }
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${err.message}</td></tr>`;
-        showToast('Erro ao consultar locais de instalação.', 'error');
+        showToast(`Erro na busca de locais: ${err.message}`, 'error');
+        if (progressText) progressText.textContent = 'Erro ao consultar.';
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<i class="fa-solid fa-location-crosshairs"></i> Buscar Locais de Instalação';
     }
 }
+window.consultarLocalInstalacao = consultarLocalInstalacaoStream;
 
 // --------------------------------------------------------------------
-// TAB 4: RANKINGS DE EXECUÇÃO
+// TAB 4: RANKINGS DE EXECUÇÃO (HORÁRIO RESTRITO 08H ÀS 18H)
 // --------------------------------------------------------------------
 async function carregarRankingDiario() {
     const container = document.getElementById('lista-ranking-diario');
     const totalSpan = document.getElementById('total-os-diario');
     const dataLabel = document.getElementById('data-label-diario');
+    const proximaAtt = document.getElementById('proxima-att-diario');
+    const badgeJanela = document.getElementById('badge-janela-diario');
     const dataInput = document.getElementById('data-filtro-ranking');
 
     container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Carregando ranking do dia...</div>';
@@ -356,6 +464,20 @@ async function carregarRankingDiario() {
     try {
         const resp = await fetch(url);
         const data = await resp.json();
+
+        if (badgeJanela) {
+            if (data.janela_ativa) {
+                badgeJanela.className = 'ranking-janela-badge janela-ativa';
+                badgeJanela.innerHTML = '<i class="fa-solid fa-circle-check"></i> Horário Operacional (08h às 18h)';
+            } else {
+                badgeJanela.className = 'ranking-janela-badge janela-inativa';
+                badgeJanela.innerHTML = '<i class="fa-solid fa-clock"></i> Ranking Congelado (Fora de 08h-18h)';
+            }
+        }
+
+        if (proximaAtt) {
+            proximaAtt.textContent = data.proxima_atualizacao || '--';
+        }
 
         if (!data.sucesso) {
             container.innerHTML = `<div class="empty-state">${data.erro || 'Não foi possível carregar o ranking.'}</div>`;
@@ -386,10 +508,10 @@ async function carregarRankingDiario() {
                 <div class="ranking-info">
                     <div class="ranking-name">
                         <span>${item.nome}</span>
-                        <strong style="color: #60A5FA;">${item.quantidade} OS <small style="color: var(--text-muted); font-weight: normal;">(${item.percentual}%)</small></strong>
+                        <strong style="color: #F97316;">${item.quantidade} OS <small style="color: var(--text-muted); font-weight: normal;">(${item.percentual}%)</small></strong>
                     </div>
                     <div class="ranking-bar-container">
-                        <div class="ranking-bar-fill" style="width: ${item.percentual}%;"></div>
+                        <div class="ranking-bar-fill" style="width: ${item.percentual}%; background: linear-gradient(90deg, #F97316, #FB923C);"></div>
                     </div>
                 </div>
             `;
@@ -404,12 +526,28 @@ async function carregarRankingMensal() {
     const container = document.getElementById('lista-ranking-mensal');
     const totalSpan = document.getElementById('total-os-mensal');
     const periodoLabel = document.getElementById('periodo-label-mensal');
+    const proximaAtt = document.getElementById('proxima-att-mensal');
+    const badgeJanela = document.getElementById('badge-janela-mensal');
 
     container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Carregando comparativo mensal...</div>';
 
     try {
         const resp = await fetch('/api/ranking/mensal');
         const data = await resp.json();
+
+        if (badgeJanela) {
+            if (data.janela_ativa) {
+                badgeJanela.className = 'ranking-janela-badge janela-ativa';
+                badgeJanela.innerHTML = '<i class="fa-solid fa-circle-check"></i> Horário Operacional (08h às 18h)';
+            } else {
+                badgeJanela.className = 'ranking-janela-badge janela-inativa';
+                badgeJanela.innerHTML = '<i class="fa-solid fa-clock"></i> Ranking Congelado (Fora de 08h-18h)';
+            }
+        }
+
+        if (proximaAtt) {
+            proximaAtt.textContent = data.proxima_atualizacao || '--';
+        }
 
         if (!data.sucesso) {
             container.innerHTML = `<div class="empty-state">${data.erro || 'Não foi possível carregar o ranking mensal.'}</div>`;
@@ -439,10 +577,10 @@ async function carregarRankingMensal() {
                 <div class="ranking-info">
                     <div class="ranking-name">
                         <span>${item.nome}</span>
-                        <strong style="color: #38BDF8;">${item.total} OS <small style="color: var(--text-muted); font-weight: normal;">(${item.percentual}%)</small></strong>
+                        <strong style="color: #F97316;">${item.total} OS <small style="color: var(--text-muted); font-weight: normal;">(${item.percentual}%)</small></strong>
                     </div>
                     <div class="ranking-bar-container">
-                        <div class="ranking-bar-fill" style="width: ${item.percentual}%;"></div>
+                        <div class="ranking-bar-fill" style="width: ${item.percentual}%; background: linear-gradient(90deg, #F97316, #FB923C);"></div>
                     </div>
                 </div>
             `;

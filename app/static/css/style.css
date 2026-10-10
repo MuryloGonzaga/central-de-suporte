@@ -81,36 +81,32 @@ body {
 }
 
 .sidebar-header {
-    padding: 24px 20px;
+    padding: 22px 20px;
     display: flex;
     align-items: center;
-    gap: 14px;
     border-bottom: 1px solid var(--border-color);
 }
 
-.brand-logo {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-md);
-    background: linear-gradient(135deg, var(--primary), #06B6D4);
+.brand-info {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    font-size: 20px;
-    color: #fff;
-    box-shadow: 0 0 15px rgba(37, 99, 235, 0.4);
+    width: 100%;
 }
 
-.brand-info h2 {
-    font-size: 1.05rem;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    color: var(--text-primary);
+.brand-title-logo {
+    height: 30px;
+    object-fit: contain;
+    object-position: left;
+    display: block;
+    margin-bottom: 4px;
 }
 
 .brand-info span {
-    font-size: 0.75rem;
-    color: var(--text-secondary);
+    font-size: 0.78rem;
+    color: #94A3B8;
+    font-weight: 500;
+    letter-spacing: -0.01em;
 }
 
 .sidebar-nav {
@@ -157,9 +153,9 @@ body {
 }
 
 .nav-item.active {
-    background-color: var(--primary);
+    background-color: #F97316;
     color: #FFFFFF;
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.35);
 }
 
 .nav-item.active i {
@@ -1866,3 +1862,592 @@ textarea:focus, input[type="text"]:focus, input[type="date"]:focus {
     background-color: rgba(255, 255, 255, 0.03);
 }
 
+
+/* ====================================================================
+   LOGIN PAGE STYLES
+   ==================================================================== */
+
+.login-body {
+    background: #0F172A;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.login-page-container {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.login-header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #111827;
+}
+
+.webrota-logo-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.webrota-logo-brand .logo-web {
+    color: #F8FAFC;
+}
+
+.webrota-logo-brand .logo-rota {
+    color: #F97316;
+    font-weight: 800;
+}
+
+.webrota-logo-brand .logo-waves {
+    color: #F97316;
+    display: flex;
+    align-items: center;
+}
+
+.login-header-support span {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.login-main-wrapper {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 24px;
+}
+
+.login-card-box {
+    width: 100%;
+    max-width: 420px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 40px 36px;
+}
+
+.login-card-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+.login-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    background: rgba(249, 115, 22, 0.12);
+    color: #FB923C;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    border-radius: 9999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+}
+
+.login-card-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+}
+
+.login-card-header p {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.login-error-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-md);
+    color: #F87171;
+    font-size: 0.88rem;
+    margin-bottom: 20px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group-login {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group-login label {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.form-group-login label i {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.form-group-login input {
+    width: 100%;
+    padding: 12px 16px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-family: inherit;
+    font-size: 0.95rem;
+    transition: var(--transition);
+}
+
+.form-group-login input:focus {
+    outline: none;
+    border-color: #F97316;
+    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+}
+
+.password-input-wrapper {
+    position: relative;
+}
+
+.password-input-wrapper input {
+    padding-right: 48px;
+}
+
+.btn-toggle-pass {
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 8px;
+    font-size: 1rem;
+    transition: var(--transition);
+}
+
+.btn-toggle-pass:hover {
+    color: var(--text-primary);
+}
+
+.btn-webrota-primary {
+    padding: 14px 24px;
+    background: linear-gradient(135deg, #F97316, #EA580C);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    transition: var(--transition);
+}
+
+.btn-webrota-primary:hover {
+    background: linear-gradient(135deg, #EA580C, #C2410C);
+    box-shadow: 0 4px 16px rgba(249, 115, 22, 0.4);
+    transform: translateY(-1px);
+}
+
+.btn-block-login {
+    width: 100%;
+    margin-top: 4px;
+}
+
+.login-card-footer {
+    margin-top: 24px;
+    text-align: center;
+}
+
+.login-help-note {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-bottom: 8px;
+}
+
+.login-users-hint {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+}
+
+.login-users-hint code {
+    background: rgba(249, 115, 22, 0.12);
+    color: #FB923C;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.73rem;
+}
+
+/* ====================================================================
+   SIDEBAR USER BOX & LOGOUT
+   ==================================================================== */
+
+.sidebar-user-box {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    background-color: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.sidebar-user-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.sidebar-user-info > i {
+    font-size: 1.5rem;
+    color: #F97316;
+    flex-shrink: 0;
+}
+
+.sidebar-user-info div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sidebar-user-info strong {
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar-user-info small {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+
+.btn-logout-sidebar {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-sm);
+    background: rgba(239, 68, 68, 0.12);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    color: #F87171;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.95rem;
+    text-decoration: none;
+    transition: var(--transition);
+    flex-shrink: 0;
+}
+
+.btn-logout-sidebar:hover {
+    background: rgba(239, 68, 68, 0.25);
+    color: #EF4444;
+}
+
+/* ====================================================================
+   WELCOME / HOME PAGE
+   ==================================================================== */
+
+.welcome-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.welcome-hero {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.welcome-logo-area {
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.welcome-hero h2 {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.text-orange {
+    color: #F97316;
+}
+
+.welcome-subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+.welcome-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+}
+
+.welcome-action-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 22px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.welcome-action-card:hover {
+    border-color: #F97316;
+    background-color: var(--bg-card-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(249, 115, 22, 0.12);
+}
+
+.wac-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.wac-icon.bg-purple { background: linear-gradient(135deg, #8B5CF6, #A78BFA); }
+.wac-icon.bg-blue { background: linear-gradient(135deg, #3B82F6, #60A5FA); }
+.wac-icon.bg-green { background: linear-gradient(135deg, #10B981, #34D399); }
+.wac-icon.bg-gold { background: linear-gradient(135deg, #F59E0B, #FBBF24); }
+.wac-icon.bg-cyan { background: linear-gradient(135deg, #06B6D4, #22D3EE); }
+.wac-icon.bg-red { background: linear-gradient(135deg, #EF4444, #F87171); }
+
+.wac-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.wac-info h4 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.wac-info p {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.35;
+}
+
+.wac-arrow {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    transition: var(--transition);
+}
+
+.welcome-action-card:hover .wac-arrow {
+    color: #F97316;
+    transform: translateX(3px);
+}
+
+/* ====================================================================
+   PROGRESS BAR (AcheCar + Local de Instalação)
+   ==================================================================== */
+
+.progress-bar-wrapper {
+    margin-top: 20px;
+    padding: 16px 20px;
+    background: #111827;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.progress-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.progress-status-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.progress-percent {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #F97316;
+}
+
+.progress-track {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 9999px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #F97316, #FB923C);
+    border-radius: 9999px;
+    transition: width 0.4s ease;
+}
+
+/* ====================================================================
+   LOCAL DE INSTALAÇÃO — CARDS (Multi-Equipment)
+   ==================================================================== */
+
+.local-result-card {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    transition: var(--transition);
+}
+
+.local-result-card:last-child {
+    border-bottom: none;
+}
+
+.local-result-card:hover {
+    background-color: var(--bg-card-hover);
+}
+
+.local-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.local-card-header .tag-placa {
+    font-size: 0.95rem;
+}
+
+.local-multi-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    background: rgba(249, 115, 22, 0.12);
+    color: #FB923C;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+.local-equipamentos-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+}
+
+.local-equip-item {
+    padding: 12px 16px;
+    background: #0F172A;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+}
+
+.local-equip-item .equip-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+}
+
+.local-equip-item .equip-serial {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: #60A5FA;
+    margin-bottom: 6px;
+}
+
+.local-equip-item .equip-local {
+    font-weight: 600;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+}
+
+.local-equip-item .equip-meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.local-error-text {
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    padding: 4px 0;
+}
+
+/* ====================================================================
+   RANKING — JANELA BADGE & PRÓXIMA ATUALIZAÇÃO
+   ==================================================================== */
+
+.ranking-janela-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 0.73rem;
+    font-weight: 600;
+    cursor: help;
+}
+
+.ranking-janela-badge.janela-ativa {
+    background: rgba(16, 185, 129, 0.12);
+    color: #34D399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ranking-janela-badge.janela-inativa {
+    background: rgba(100, 116, 139, 0.12);
+    color: #94A3B8;
+    border: 1px solid rgba(100, 116, 139, 0.3);
+}

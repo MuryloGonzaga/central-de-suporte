@@ -1,7 +1,7 @@
 import asyncio
 import re
 import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, AsyncGenerator
 import aiohttp
 from app.config import WEBROTA_USER, WEBROTA_PASS
 
@@ -11,14 +11,30 @@ class WebrotaService:
     _token_time: Optional[datetime.datetime] = None
     _lock = asyncio.Lock()
 
+    # Cache de Rankings com regra rígida: 08:00 às 18:00, 1 em 1 hora, sem recarga manual
+    _cache_ranking_diario: Dict[str, Any] = {}
+    _cache_ranking_mensal: Dict[str, Any] = {}
+
     @classmethod
-    async def obter_token(cls, forcar_renovacao: bool = False) -> Optional[str]:
+    def set_token_ativo(cls, token: str):
+        """Define o token ativo autenticado pelo usuário logado."""
+        if token:
+            cls._token = token
+            cls._token_time = datetime.datetime.now(datetime.timezone.utc)
+
+    @classmethod
+    async def obter_token(cls, forcar_renovacao: bool = False, token_usuario: Optional[str] = None) -> Optional[str]:
         """
-        Obtém ou renova o token JWT de autenticação da WebRota com cache em memória.
+        Obtém ou renova o token JWT de autenticação da WebRota.
+        Dá prioridade ao token da sessão do usuário autenticado.
         """
+        if token_usuario:
+            cls._token = token_usuario
+            cls._token_time = datetime.datetime.now(datetime.timezone.utc)
+            return token_usuario
+
         async with cls._lock:
             agora = datetime.datetime.now(datetime.timezone.utc)
-            # Reaproveita token se tiver menos de 4 horas
             if (
                 not forcar_renovacao
                 and cls._token
@@ -28,7 +44,8 @@ class WebrotaService:
                 return cls._token
 
             if not WEBROTA_USER or not WEBROTA_PASS:
-                return None
+                # Se não houver credenciais no .env, utiliza o token ativo em memória se existir
+                return cls._token
 
             url_login = f"{cls.BASE_URL}/auth/login/"
             payload = {"username": WEBROTA_USER, "password": WEBROTA_PASS}
@@ -45,9 +62,9 @@ class WebrotaService:
                                 return cls._token
             except Exception as e:
                 print(f"[ERRO - WebRota Login] Falha ao autenticar: {e}")
-                return None
+                return cls._token
 
-            return None
+            return cls._token
 
     @classmethod
     async def verificar_credenciais(cls) -> Dict[str, Any]:
@@ -78,16 +95,16 @@ class WebrotaService:
             }
 
     @classmethod
-    async def consultar_veiculo(cls, placa: str, session: Optional[aiohttp.ClientSession] = None) -> Dict[str, Any]:
+    async def consultar_veiculo(cls, placa: str, session: Optional[aiohttp.ClientSession] = None, token: Optional[str] = None) -> Dict[str, Any]:
         """
         Consulta veículo cadastrado na WebRota pela placa.
         """
-        token = await cls.obter_token()
+        token = await cls.obter_token(token_usuario=token)
         if not token:
             return {
                 "placa": placa,
                 "sucesso": False,
-                "erro": "Falha na autenticação da WebRota. Verifique credenciais no .env."
+                "erro": "Falha na autenticação da WebRota. Faça login novamente com suas credenciais."
             }
 
         placa_limpa = re.sub(r'[^a-zA-Z0-9]', '', placa).upper()
@@ -122,7 +139,6 @@ class WebrotaService:
                             veiculo_encontrado = lista[0]
                             break
                     elif resp.status in (401, 403):
-                        # Token expirado, tenta renovar
                         await cls.obter_token(forcar_renovacao=True)
 
             if veiculo_encontrado:
@@ -153,34 +169,35 @@ class WebrotaService:
                 await session.close()
 
     @classmethod
-    async def consultar_veiculos_em_massa(cls, placas: List[str]) -> List[Dict[str, Any]]:
+    async def consultar_veiculos_em_massa(cls, placas: List[str], token: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Consulta múltiplos veículos no cadastro da WebRota.
         """
-        token = await cls.obter_token()
+        token = await cls.obter_token(token_usuario=token)
         if not token:
-            return [{"placa": p, "sucesso": False, "erro": "Falha na autenticação da WebRota."} for p in placas]
+            return [{"placa": p, "sucesso": False, "erro": "Falha na autenticação da WebRota. Faça login novamente."} for p in placas]
 
         resultados = []
         async with aiohttp.ClientSession() as session:
             for placa in placas:
-                res = await cls.consultar_veiculo(placa, session=session)
+                res = await cls.consultar_veiculo(placa, session=session, token=token)
                 resultados.append(res)
-                await asyncio.sleep(0.15)  # Pequeno intervalo para respeitar a API
+                await asyncio.sleep(0.15)
 
         return resultados
 
     @classmethod
-    async def consultar_local_instalacao(cls, identificador: str, session: Optional[aiohttp.ClientSession] = None) -> Dict[str, Any]:
+    async def consultar_local_instalacao(cls, identificador: str, session: Optional[aiohttp.ClientSession] = None, token: Optional[str] = None) -> Dict[str, Any]:
         """
         Rastreia seriais e busca o local de instalação na última OS finalizada (Status E ou F).
+        Em caso de veículos com múltiplos equipamentos (ex: 2 rastreadores), consolida ambos no mesmo bloco.
         """
-        token = await cls.obter_token()
+        token = await cls.obter_token(token_usuario=token)
         if not token:
             return {
                 "identificador": identificador,
                 "sucesso": False,
-                "erro": "Falha na autenticação da WebRota."
+                "erro": "Falha na autenticação da WebRota. Faça login com suas credenciais."
             }
 
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
@@ -226,11 +243,13 @@ class WebrotaService:
                 return {
                     "identificador": identificador,
                     "sucesso": False,
+                    "possui_multiplos_equipamentos": False,
+                    "total_equipamentos": 0,
                     "erro": "Identificador não encontrado ou sem dispositivo vinculado."
                 }
 
             detalhes_seriais = []
-            for serial in seriais_encontrados:
+            for idx_eq, serial in enumerate(seriais_encontrados):
                 url_os = f"{cls.BASE_URL}/maintener/order/"
                 params_os = {
                     "aggregated_field": "maintener",
@@ -256,6 +275,7 @@ class WebrotaService:
                             os_filtradas.sort(key=lambda x: x.get('date_execution'), reverse=True)
                             ultima_os = os_filtradas[0]
                             detalhes_seriais.append({
+                                "numero_equipamento": idx_eq + 1,
                                 "serial": serial,
                                 "local": ultima_os.get('local', 'Local não especificado'),
                                 "data_execucao": ultima_os.get('date_execution'),
@@ -264,6 +284,7 @@ class WebrotaService:
                             })
                         else:
                             detalhes_seriais.append({
+                                "numero_equipamento": idx_eq + 1,
                                 "serial": serial,
                                 "local": "Sem OS válida (status E/F ou local preenchido)",
                                 "data_execucao": None,
@@ -272,6 +293,7 @@ class WebrotaService:
                             })
                     else:
                         detalhes_seriais.append({
+                            "numero_equipamento": idx_eq + 1,
                             "serial": serial,
                             "local": f"Erro na consulta da OS (Status {resp_os.status})",
                             "data_execucao": None,
@@ -282,12 +304,16 @@ class WebrotaService:
             return {
                 "identificador": identificador,
                 "sucesso": True,
+                "possui_multiplos_equipamentos": len(detalhes_seriais) > 1,
+                "total_equipamentos": len(detalhes_seriais),
                 "seriais": detalhes_seriais
             }
         except Exception as e:
             return {
                 "identificador": identificador,
                 "sucesso": False,
+                "possui_multiplos_equipamentos": False,
+                "total_equipamentos": 0,
                 "erro": f"Erro ao consultar local: {str(e)}"
             }
         finally:
@@ -295,39 +321,131 @@ class WebrotaService:
                 await session.close()
 
     @classmethod
-    async def consultar_locais_em_massa(cls, identificadores: List[str]) -> List[Dict[str, Any]]:
+    async def consultar_locais_em_massa(cls, identificadores: List[str], token: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Consulta locais de instalação para múltiplos identificadores/placas.
         """
+        token = await cls.obter_token(token_usuario=token)
         resultados = []
         async with aiohttp.ClientSession() as session:
             for ident in identificadores:
-                res = await cls.consultar_local_instalacao(ident, session=session)
+                res = await cls.consultar_local_instalacao(ident, session=session, token=token)
                 resultados.append(res)
                 await asyncio.sleep(0.2)
 
         return resultados
 
     @classmethod
-    async def ranking_diario(cls, data_referencia: Optional[str] = None) -> Dict[str, Any]:
+    async def consultar_locais_em_massa_stream(
+        cls,
+        identificadores: List[str],
+        token: Optional[str] = None
+    ) -> AsyncGenerator[Dict[str, Any], None]:
         """
-        Consulta o ranking de execuções de OS para uma data específica (padrão: hoje no fuso BRT).
+        Streaming em tempo real com barra de progresso para a consulta de locais de instalação.
         """
-        token = await cls.obter_token()
+        token = await cls.obter_token(token_usuario=token)
         if not token:
-            return {
-                "sucesso": False,
-                "erro": "Falha na autenticação da WebRota. Verifique as credenciais no .env."
+            yield {
+                "tipo": "erro",
+                "mensagem": "Falha na autenticação da WebRota. Por favor, faça login novamente com suas credenciais."
             }
+            return
 
+        total = len(identificadores)
+        yield {
+            "tipo": "inicio",
+            "total": total,
+            "mensagem": f"Iniciando busca de locais de instalação para {total} veículo(s)..."
+        }
+
+        resultados = []
+        async with aiohttp.ClientSession() as session:
+            for idx, ident in enumerate(identificadores):
+                numero_atual = idx + 1
+                percentual = round((numero_atual / total) * 100, 1)
+
+                yield {
+                    "tipo": "consultando",
+                    "atual": numero_atual,
+                    "total": total,
+                    "percentual": percentual,
+                    "identificador": ident,
+                    "mensagem": f"Buscando histórico de OS para {ident} ({numero_atual} de {total})..."
+                }
+
+                res = await cls.consultar_local_instalacao(ident, session=session, token=token)
+                resultados.append(res)
+
+                yield {
+                    "tipo": "progresso",
+                    "atual": numero_atual,
+                    "total": total,
+                    "percentual": percentual,
+                    "identificador": ident,
+                    "resultado": res
+                }
+
+                if idx < len(identificadores) - 1:
+                    await asyncio.sleep(0.25)
+
+        yield {
+            "tipo": "concluido",
+            "total_consultadas": len(resultados),
+            "total_solicitadas": total,
+            "mensagem": f"Busca finalizada! {len(resultados)} veículo(s) processados."
+        }
+
+    @classmethod
+    async def ranking_diario(cls, data_referencia: Optional[str] = None, token: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Consulta o ranking de execuções de OS para uma data específica.
+        REGRAS RIGIDAS:
+        - Atualização permitida APENAS entre 08:00 e 18:00 (horário de Brasília).
+        - Atualizações ocorrem no máximo de 1 em 1 hora (cache horário).
+        - Fora do horário das 08:00 às 18:00, os dados permanecem estáticos (congelados).
+        """
         tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
+        agora_brt = datetime.datetime.now(tz_brt)
+        hora_atual = agora_brt.hour
+
+        janela_ativa = (8 <= hora_atual < 18)
+
         if data_referencia:
             try:
                 data_dt = datetime.datetime.strptime(data_referencia, "%Y-%m-%d").replace(tzinfo=tz_brt)
             except ValueError:
-                data_dt = datetime.datetime.now(tz_brt)
+                data_dt = agora_brt
         else:
-            data_dt = datetime.datetime.now(tz_brt)
+            data_dt = agora_brt
+
+        dia_iso = data_dt.strftime("%Y-%m-%d")
+        cache_key = f"{dia_iso}_{hora_atual}"
+
+        # 1. Se já calculou nesta hora, retorna o cache imediatamente
+        if cache_key in cls._cache_ranking_diario:
+            resp_cache = cls._cache_ranking_diario[cache_key].copy()
+            resp_cache["janela_ativa"] = janela_ativa
+            return resp_cache
+
+        # 2. Se estiver fora da janela (antes das 08h ou a partir das 18h)
+        if not janela_ativa:
+            # Busca o último snapshot do dia se existir
+            snapshots = [v for k, v in cls._cache_ranking_diario.items() if k.startswith(dia_iso)]
+            if snapshots:
+                ultimo = snapshots[-1].copy()
+                ultimo["janela_ativa"] = False
+                ultimo["mensagem_horario"] = "Ranking congelado fora do horário operacional. Atualizações automáticas ocorrem de 1 em 1 hora entre 08:00 e 18:00."
+                return ultimo
+
+        # 3. Executa a requisição na API da WebRota
+        token = await cls.obter_token(token_usuario=token)
+        if not token:
+            return {
+                "sucesso": False,
+                "erro": "Falha na autenticação da WebRota. Faça login com suas credenciais.",
+                "janela_ativa": janela_ativa
+            }
 
         amanha_dt = data_dt + datetime.timedelta(days=1)
         start_date = f"{data_dt.strftime('%Y-%m-%d')}T03:00:00.000Z"
@@ -370,22 +488,35 @@ class WebrotaService:
                                 "percentual": percentual
                             })
 
-                        return {
+                        proxima_hora_str = f"{(hora_atual + 1):02d}:00" if hora_atual < 17 else "08:00 (próximo ciclo)"
+                        ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {hora_atual:02d}:00")
+
+                        resultado = {
                             "sucesso": True,
                             "data": data_dt.strftime("%d/%m/%Y"),
-                            "data_iso": data_dt.strftime("%Y-%m-%d"),
+                            "data_iso": dia_iso,
                             "total_os": total_os,
-                            "ranking": itens_ranking
+                            "ranking": itens_ranking,
+                            "janela_ativa": janela_ativa,
+                            "ultima_atualizacao": ultima_hora_str,
+                            "proxima_atualizacao": proxima_hora_str,
+                            "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00 (sem forçar atualização)"
                         }
+
+                        # Armazena no cache da hora cheia
+                        cls._cache_ranking_diario[cache_key] = resultado
+                        return resultado
                     else:
                         return {
                             "sucesso": False,
-                            "erro": f"Erro na API WebRota. Código: {resp.status}"
+                            "erro": f"Erro na API WebRota. Código: {resp.status}",
+                            "janela_ativa": janela_ativa
                         }
         except Exception as e:
             return {
                 "sucesso": False,
-                "erro": f"Falha ao consultar ranking diário: {str(e)}"
+                "erro": f"Falha ao consultar ranking diário: {str(e)}",
+                "janela_ativa": janela_ativa
             }
 
     @classmethod
@@ -393,26 +524,45 @@ class WebrotaService:
         cls,
         ano: Optional[int] = None,
         mes: Optional[int] = None,
-        tecnicos_custom: Optional[List[Dict[str, str]]] = None
+        tecnicos_custom: Optional[List[Dict[str, str]]] = None,
+        token: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Consulta o ranking de execuções do mês (comparativo Túlio x Kaio e geral).
+        REGRAS RÍGIDAS: Atualização de 1 em 1 hora entre 08:00 e 18:00.
         """
-        token = await cls.obter_token()
-        if not token:
-            return {
-                "sucesso": False,
-                "erro": "Falha na autenticação da WebRota. Verifique credenciais no .env."
-            }
-
         tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
         agora_brt = datetime.datetime.now(tz_brt)
+        hora_atual = agora_brt.hour
+
+        janela_ativa = (8 <= hora_atual < 18)
 
         ano_sel = ano or agora_brt.year
         mes_sel = mes or agora_brt.month
+        cache_key = f"{ano_sel}_{mes_sel}_{hora_atual}"
+
+        if cache_key in cls._cache_ranking_mensal:
+            resp_m = cls._cache_ranking_mensal[cache_key].copy()
+            resp_m["janela_ativa"] = janela_ativa
+            return resp_m
+
+        if not janela_ativa:
+            snapshots = [v for k, v in cls._cache_ranking_mensal.items() if k.startswith(f"{ano_sel}_{mes_sel}")]
+            if snapshots:
+                ultimo_m = snapshots[-1].copy()
+                ultimo_m["janela_ativa"] = False
+                ultimo_m["mensagem_horario"] = "Ranking mensal congelado fora do horário operacional (08:00 às 18:00)."
+                return ultimo_m
+
+        token = await cls.obter_token(token_usuario=token)
+        if not token:
+            return {
+                "sucesso": False,
+                "erro": "Falha na autenticação da WebRota. Faça login com suas credenciais.",
+                "janela_ativa": janela_ativa
+            }
 
         primeiro_dia = datetime.datetime(ano_sel, mes_sel, 1, tzinfo=tz_brt)
-        # Se for o mês atual, vai até hoje + 1 dia. Se for mês passado, vai até o último dia do mês.
         if ano_sel == agora_brt.year and mes_sel == agora_brt.month:
             fim_periodo = agora_brt + datetime.timedelta(days=1)
             periodo_texto = f"{primeiro_dia.strftime('%d/%m/%Y')} a {agora_brt.strftime('%d/%m/%Y')}"
@@ -465,7 +615,7 @@ class WebrotaService:
                         "nome": tec["nome_exibicao"],
                         "total": total_executado
                     })
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(0.4)
 
             ranking_ordenado = sorted(ranking_resultados, key=lambda x: x["total"], reverse=True)
             total_geral = sum(r["total"] for r in ranking_ordenado)
@@ -480,17 +630,27 @@ class WebrotaService:
                     "percentual": pct
                 })
 
-            return {
+            proxima_hora_str = f"{(hora_atual + 1):02d}:00" if hora_atual < 17 else "08:00 (próximo ciclo)"
+            ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {hora_atual:02d}:00")
+
+            resultado_m = {
                 "sucesso": True,
                 "periodo": periodo_texto,
                 "mes": mes_sel,
                 "ano": ano_sel,
                 "total_comparativo": total_geral,
-                "ranking": itens
+                "ranking": itens,
+                "janela_ativa": janela_ativa,
+                "ultima_atualizacao": ultima_hora_str,
+                "proxima_atualizacao": proxima_hora_str,
+                "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00"
             }
+
+            cls._cache_ranking_mensal[cache_key] = resultado_m
+            return resultado_m
         except Exception as e:
             return {
                 "sucesso": False,
-                "erro": f"Falha ao gerar ranking mensal: {str(e)}"
+                "erro": f"Falha ao gerar ranking mensal: {str(e)}",
+                "janela_ativa": janela_ativa
             }
-

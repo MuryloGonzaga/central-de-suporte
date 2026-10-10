@@ -1,16 +1,18 @@
-from fastapi import FastAPI, Request, Query, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import FastAPI, Request, Query, HTTPException, Cookie, Form
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from pathlib import Path
 import re
+import json
 
 from app.config import APP_NAME, DEBUG_MODE
 from app.services.achecar_service import AcheCarService, extrair_placas
 from app.services.webrota_service import WebrotaService
 from app.services.guias_service import GuiasService
+from app.services.auth_service import AuthService
 from app.ai.neural_model import neural_brain
 from app.ai.knowledge_base import KNOWLEDGE_CHUNKS, INTENTS_LIST
 
@@ -20,8 +22,8 @@ app = FastAPI(
     title=APP_NAME,
     description="Central de Suporte Web: Consultas de Veículos, Placas, Ordens de Serviço, Rastreamento e Rankings WebRota.",
     version="1.0.0",
-    docs_url="/docs",
-    redoc_url="/redoc"
+    docs_url=None,
+    redoc_url=None
 )
 
 # Monta diretórios de arquivos estáticos e templates
@@ -31,7 +33,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 # Modelos Pydantic para requisições da API
 class PlacasRequest(BaseModel):
     placas: str = Field(..., description="Uma ou mais placas separadas por linha, espaço ou vírgula")
-    intervalo_seguro: Optional[bool] = Field(True, description="Se verdadeiro, aplica pausa suave contra bloqueios da API pública")
 
 class IdentificadoresRequest(BaseModel):
     identificadores: str = Field(..., description="Uma ou mais placas ou identificadores de equipamentos/máquinas")
@@ -41,13 +42,74 @@ class ChatRequest(BaseModel):
     aparelho: Optional[str] = Field(None, description="Filtro opcional do modelo (ex: ST340UR, ST8300, ST310, ST8310UM)")
     historico: Optional[List[Dict[str, str]]] = Field(None, description="Histórico prévio da conversa")
 
+# Helper: valida sessão e obtém token da WebRota
+def obter_usuario_sessao(cs_session: Optional[str]) -> Optional[Dict[str, Any]]:
+    return AuthService.validar_sessao(cs_session)
+
+def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
+    usuario = obter_usuario_sessao(cs_session)
+    if usuario and usuario.get("webrota_token"):
+        return usuario["webrota_token"]
+    return WebrotaService._token
+
+# ==========================================
+# ROTAS DE AUTENTICAÇÃO
+# ==========================================
+
+@app.get("/login", response_class=HTMLResponse)
+async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(default=None)):
+    """Página de login. Redireciona para home se já autenticado."""
+    if obter_usuario_sessao(cs_session):
+        return RedirectResponse(url="/", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={"erro": None}
+    )
+
+@app.post("/login", response_class=HTMLResponse)
+async def processar_login(
+    request: Request,
+    username: str = Form(...),
+    password: str = Form(...)
+):
+    """Processa o formulário de login via API WebRota."""
+    usuario = await AuthService.autenticar(username, password)
+    if not usuario:
+        return templates.TemplateResponse(
+            request=request,
+            name="login.html",
+            context={"erro": "Usuário ou senha inválidos no sistema WebRota. Verifique suas credenciais."}
+        )
+    token = AuthService.criar_sessao(usuario)
+    response = RedirectResponse(url="/", status_code=302)
+    response.set_cookie(
+        key="cs_session",
+        value=token,
+        max_age=43200,
+        httponly=True,
+        samesite="lax"
+    )
+    return response
+
+@app.get("/logout")
+async def logout(cs_session: Optional[str] = Cookie(default=None)):
+    """Encerra a sessão do usuário."""
+    AuthService.encerrar_sessao(cs_session)
+    response = RedirectResponse(url="/login", status_code=302)
+    response.delete_cookie("cs_session")
+    return response
+
 # ==========================================
 # ROTAS DE PÁGINAS (FRONTEND)
 # ==========================================
 
 @app.get("/", response_class=HTMLResponse)
-async def pagina_inicial(request: Request):
-    """Página principal da Central de Suporte"""
+async def pagina_inicial(request: Request, cs_session: Optional[str] = Cookie(default=None)):
+    """Página principal da Central de Suporte — requer autenticação."""
+    usuario = obter_usuario_sessao(cs_session)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -55,13 +117,17 @@ async def pagina_inicial(request: Request):
             "app_name": APP_NAME,
             "cabos": GuiasService.get_cabos(),
             "leds": GuiasService.get_leds(),
-            "aba_inicial": "tab-placa"
+            "aba_inicial": "tab-home",
+            "usuario": usuario
         }
     )
 
 @app.get("/chat", response_class=HTMLResponse)
-async def pagina_chat(request: Request):
-    """Página dedicada do Chat Inteligente com a Rede Neural dos Manuais"""
+async def pagina_chat(request: Request, cs_session: Optional[str] = Cookie(default=None)):
+    """Página dedicada do Chat Inteligente com a Rede Neural dos Manuais — requer autenticação."""
+    usuario = obter_usuario_sessao(cs_session)
+    if not usuario:
+        return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -69,7 +135,8 @@ async def pagina_chat(request: Request):
             "app_name": APP_NAME,
             "cabos": GuiasService.get_cabos(),
             "leds": GuiasService.get_leds(),
-            "aba_inicial": "tab-chat"
+            "aba_inicial": "tab-chat",
+            "usuario": usuario
         }
     )
 
@@ -78,9 +145,13 @@ async def pagina_chat(request: Request):
 # ==========================================
 
 @app.get("/api/status")
-async def status_sistema():
+async def status_sistema(cs_session: Optional[str] = Cookie(default=None)):
     """Verifica a integridade do sistema e conexão com a API da WebRota"""
-    status_webrota = await WebrotaService.verificar_credenciais()
+    token = obter_token_webrota(cs_session)
+    status_webrota = {
+        "conectado": bool(token),
+        "mensagem": "Autenticado na API WebRota com credenciais ativas." if token else "Aguardando login de usuário."
+    }
     return {
         "status": "online",
         "app_name": APP_NAME,
@@ -90,6 +161,29 @@ async def status_sistema():
 # ------------------------------------------
 # 1. Consulta AcheCar (Base Pública)
 # ------------------------------------------
+
+@app.get("/api/consulta/placa/stream")
+async def consultar_placas_stream(placas: str = Query(..., description="Placas separadas por vírgula ou linha")):
+    """Streaming SSE para consulta de placas AcheCar com barra de progresso em tempo real."""
+    extracao = extrair_placas(placas)
+    placas_validas = extracao["validas"]
+    placas_invalidas = extracao["invalidas"]
+
+    async def event_generator():
+        if not placas_validas:
+            payload = json.dumps({"tipo": "erro", "mensagem": "Nenhuma placa válida encontrada.", "invalidas": placas_invalidas}, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+            return
+
+        async for evento in AcheCarService.consultar_em_massa_stream(placas_validas):
+            payload = json.dumps(evento, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 @app.get("/api/consulta/placa/{placa}")
 async def consultar_placa_unica(placa: str):
@@ -112,10 +206,7 @@ async def consultar_placas_lote(req: PlacasRequest):
             "resultados": []
         }
 
-    resultado_busca = await AcheCarService.consultar_em_massa(
-        placas_validas,
-        intervalo_seguro=req.intervalo_seguro
-    )
+    resultado_busca = await AcheCarService.consultar_em_massa(placas_validas)
 
     return {
         "sucesso": True,
@@ -129,14 +220,16 @@ async def consultar_placas_lote(req: PlacasRequest):
 # ------------------------------------------
 
 @app.get("/api/consulta/veiculo/{placa}")
-async def consultar_veiculo_webrota_unico(placa: str):
+async def consultar_veiculo_webrota_unico(placa: str, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta individual de veículo na base cadastral da WebRota"""
-    resultado = await WebrotaService.consultar_veiculo(placa)
+    token = obter_token_webrota(cs_session)
+    resultado = await WebrotaService.consultar_veiculo(placa, token=token)
     return resultado
 
 @app.post("/api/consulta/veiculo")
-async def consultar_veiculos_webrota_lote(req: PlacasRequest):
+async def consultar_veiculos_webrota_lote(req: PlacasRequest, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta em lote de veículos na base cadastral da WebRota"""
+    token = obter_token_webrota(cs_session)
     linhas = [linha.strip() for linha in req.placas.split('\n') if linha.strip()]
     placas_validas = []
     placas_invalidas = []
@@ -157,7 +250,7 @@ async def consultar_veiculos_webrota_lote(req: PlacasRequest):
             "resultados": []
         }
 
-    resultados = await WebrotaService.consultar_veiculos_em_massa(placas_validas)
+    resultados = await WebrotaService.consultar_veiculos_em_massa(placas_validas, token=token)
     return {
         "sucesso": True,
         "total_consultadas": len(resultados),
@@ -170,16 +263,17 @@ async def consultar_veiculos_webrota_lote(req: PlacasRequest):
 # ------------------------------------------
 
 @app.get("/api/consulta/local/{identificador}")
-async def consultar_local_unico(identificador: str):
+async def consultar_local_unico(identificador: str, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta local de instalação da última OS para uma placa ou máquina"""
-    resultado = await WebrotaService.consultar_local_instalacao(identificador)
+    token = obter_token_webrota(cs_session)
+    resultado = await WebrotaService.consultar_local_instalacao(identificador, token=token)
     return resultado
 
 @app.post("/api/consulta/local")
-async def consultar_locais_lote(req: IdentificadoresRequest):
+async def consultar_locais_lote(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta locais de instalação para múltiplos identificadores/placas"""
+    token = obter_token_webrota(cs_session)
     linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
-    # Remove duplicados mantendo a ordem
     identificadores = list(dict.fromkeys(linhas))
 
     if not identificadores:
@@ -189,29 +283,57 @@ async def consultar_locais_lote(req: IdentificadoresRequest):
             "resultados": []
         }
 
-    resultados = await WebrotaService.consultar_locais_em_massa(identificadores)
+    resultados = await WebrotaService.consultar_locais_em_massa(identificadores, token=token)
     return {
         "sucesso": True,
         "total_consultadas": len(resultados),
         "resultados": resultados
     }
 
+@app.post("/api/consulta/local/stream")
+async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
+    """Streaming SSE para consulta de locais de instalação com barra de progresso."""
+    token = obter_token_webrota(cs_session)
+    linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
+    identificadores = list(dict.fromkeys(linhas))
+
+    async def event_generator():
+        if not identificadores:
+            payload = json.dumps({"tipo": "erro", "mensagem": "Nenhum identificador informado."}, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+            return
+        async for evento in WebrotaService.consultar_locais_em_massa_stream(identificadores, token=token):
+            payload = json.dumps(evento, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
 # ------------------------------------------
 # 4. Rankings de Execução de OS (WebRota)
 # ------------------------------------------
 
 @app.get("/api/ranking/diario")
-async def ranking_diario(data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)")):
+async def ranking_diario(
+    data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)"),
+    cs_session: Optional[str] = Cookie(default=None)
+):
     """Ranking diário de ordens de serviço executadas na WebRota"""
-    return await WebrotaService.ranking_diario(data_referencia=data)
+    token = obter_token_webrota(cs_session)
+    return await WebrotaService.ranking_diario(data_referencia=data, token=token)
 
 @app.get("/api/ranking/mensal")
 async def ranking_mensal(
     ano: Optional[int] = Query(None, description="Ano de referência"),
-    mes: Optional[int] = Query(None, description="Mês de referência (1-12)")
+    mes: Optional[int] = Query(None, description="Mês de referência (1-12)"),
+    cs_session: Optional[str] = Cookie(default=None)
 ):
     """Ranking mensal comparativo entre os técnicos (Túlio x Kaio)"""
-    return await WebrotaService.ranking_mensal(ano=ano, mes=mes)
+    token = obter_token_webrota(cs_session)
+    return await WebrotaService.ranking_mensal(ano=ano, mes=mes, token=token)
 
 # ------------------------------------------
 # 5. Guias Técnicos
