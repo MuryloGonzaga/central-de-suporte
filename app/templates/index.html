@@ -28,6 +28,11 @@
             </div>
 
             <nav class="sidebar-nav">
+                <button class="nav-item nav-item-ia" data-tab="tab-chat">
+                    <i class="fa-solid fa-brain"></i>
+                    <span>Chat IA (Manuais)</span>
+                    <span class="badge-nav-ia">Neural</span>
+                </button>
                 <button class="nav-item active" data-tab="tab-placa">
                     <i class="fa-solid fa-car-side"></i>
                     <span>Consulta Placa (AcheCar)</span>
@@ -55,6 +60,13 @@
             </nav>
 
             <div class="sidebar-footer">
+                <div class="status-indicator-box" id="neural-status-badge" style="margin-bottom: 8px;">
+                    <div class="status-dot success"></div>
+                    <div class="status-info">
+                        <strong>Rede Neural</strong>
+                        <span id="neural-status-text">Manuais Carregados</span>
+                    </div>
+                </div>
                 <div class="status-indicator-box" id="webrota-status-badge">
                     <div class="status-dot warning"></div>
                     <div class="status-info">
@@ -433,6 +445,130 @@
                                         </div>
                                     </div>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 0: CHAT IA - MANUAIS DOS APARELHOS -->
+                <section class="tab-pane" id="tab-chat">
+                    <div class="chat-wrapper">
+                        <!-- Topo do Chat com Filtro de Aparelho e Status da Rede Neural -->
+                        <div class="chat-header-panel">
+                            <div class="chat-title-group">
+                                <div class="chat-icon-badge">
+                                    <i class="fa-solid fa-brain"></i>
+                                </div>
+                                <div>
+                                    <div class="chat-title-row">
+                                        <h3>Assistente Técnico IA</h3>
+                                        <span class="neural-badge-live">
+                                            <span class="pulse-dot"></span> Rede Neural Ativa
+                                        </span>
+                                    </div>
+                                    <p class="chat-subtitle">Compreensão semântica em linguagem natural e ordem livre sobre os rastreadores Suntech.</p>
+                                </div>
+                            </div>
+                            <div class="chat-controls-group">
+                                <button type="button" class="btn-clear-chat" id="btn-limpar-chat" title="Limpar conversa">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                    <span>Limpar Chat</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Barra de Seleção Rápida de Aparelho (Pills Interativos) -->
+                        <div class="chat-device-bar">
+                            <span class="device-bar-label"><i class="fa-solid fa-satellite-dish"></i> Aparelho:</span>
+                            <div class="device-pill-list" id="device-pill-list">
+                                <button type="button" class="device-pill-btn active" data-device="">
+                                    <i class="fa-solid fa-layer-group"></i> Todos (Auto-Detectar)
+                                </button>
+                                <button type="button" class="device-pill-btn" data-device="ST4305">
+                                    <i class="fa-solid fa-satellite-dish"></i> ST4305 / ST8300
+                                </button>
+                                <button type="button" class="device-pill-btn" data-device="ST340UR">
+                                    <i class="fa-solid fa-shield-halved"></i> ST340UR (IP67)
+                                </button>
+                                <button type="button" class="device-pill-btn" data-device="Linha ST310">
+                                    <i class="fa-solid fa-box-archive"></i> Linha ST310
+                                </button>
+                                <button type="button" class="device-pill-btn" data-device="ST8310UM">
+                                    <i class="fa-solid fa-tower-broadcast"></i> ST8310UM (4G)
+                                </button>
+                            </div>
+                            <input type="hidden" id="chat-filtro-aparelho" value="">
+                        </div>
+
+                        <!-- Categorias de Dúvidas Prontas -->
+                        <div class="chat-categories-bar">
+                            <div class="category-tabs-row" id="prompt-category-tabs">
+                                <button type="button" class="cat-tab-btn active" data-cat="frequentes"><i class="fa-solid fa-star"></i> Mais Frequentes</button>
+                                <button type="button" class="cat-tab-btn" data-cat="fios"><i class="fa-solid fa-plug"></i> Fios & Chicotes</button>
+                                <button type="button" class="cat-tab-btn" data-cat="dpa"><i class="fa-solid fa-gauge"></i> Calibração DPA</button>
+                                <button type="button" class="cat-tab-btn" data-cat="rele"><i class="fa-solid fa-power-off"></i> Relé 5 Pinos & Bloqueio</button>
+                                <button type="button" class="cat-tab-btn" data-cat="leds"><i class="fa-solid fa-lightbulb"></i> Diagnóstico de LEDs</button>
+                                <button type="button" class="cat-tab-btn" data-cat="synctrak"><i class="fa-solid fa-gear"></i> Synctrak & Senhas</button>
+                            </div>
+                        </div>
+
+                        <!-- Chips de Dúvidas Dinâmicos por Categoria -->
+                        <div class="chat-suggestions-bar">
+                            <div class="suggestions-chips-scroll" id="chat-suggestions-chips">
+                                <!-- Preenchido dinamicamente via JS com base na categoria selecionada -->
+                            </div>
+                        </div>
+
+                        <!-- Área de Mensagens -->
+                        <div class="chat-messages-container-wrapper">
+                            <div class="chat-messages" id="chat-messages-container">
+                                <div class="chat-bubble bot-bubble">
+                                    <div class="bubble-avatar">
+                                        <i class="fa-solid fa-robot"></i>
+                                    </div>
+                                    <div class="bubble-content">
+                                        <div class="bubble-header">
+                                            <strong>Assistente Suntech IA</strong>
+                                            <span class="meta-tag">Rede Neural Invariante à Ordem</span>
+                                        </div>
+                                        <div class="bubble-text">
+                                            <p>Olá! Sou o assistente especialista em instalação e configuração de rastreadores <strong>Suntech</strong>. Fui treinado diretamente nos manuais técnicos oficiais.</p>
+                                            <div class="direct-answer-card" style="margin: 10px 0;">
+                                                <i class="fa-solid fa-bolt" style="color: #F59E0B; font-size: 16px;"></i>
+                                                <div>
+                                                    <strong>Entendimento Semântico Total:</strong>
+                                                    <p style="margin: 2px 0 0 0; font-size: 13px;">Você pode digitar sua dúvida em <strong>qualquer ordem de palavras</strong> ou gírias (ex: <em>"st340ur pos chave fio cor"</em>, <em>"rele 5 pinos bomba corte"</em>, <em>"led vermelho 4 piscadas"</em>).</p>
+                                                </div>
+                                            </div>
+                                            <p style="margin-top: 8px;">Selecione um aparelho acima ou faça uma pergunta direta sobre cores de fios, calibração DPA, esquemas de relé ou configurações!</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Botão Flutuante para descer ao final -->
+                            <button type="button" class="btn-scroll-bottom" id="btn-scroll-bottom" title="Ir para a última mensagem">
+                                <i class="fa-solid fa-arrow-down"></i>
+                            </button>
+                        </div>
+
+                        <!-- Barra de Input e Envio -->
+                        <div class="chat-input-bar">
+                            <form id="chat-form" class="chat-form">
+                                <div class="input-wrapper">
+                                    <textarea
+                                        id="chat-input-text"
+                                        placeholder="Digite sua dúvida sobre o aparelho... (em qualquer ordem de palavras. Pressione Enter para enviar)"
+                                        rows="1"
+                                        required
+                                    ></textarea>
+                                </div>
+                                <button type="submit" id="btn-chat-send" class="btn-send-message" title="Enviar pergunta">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </form>
+                            <div class="chat-footer-note">
+                                <span><i class="fa-solid fa-shield-halved"></i> Respostas estritamente fundamentadas nos manuais oficiais da Suntech do Brasil.</span>
+                                <span id="chat-latency-badge" class="chat-latency-indicator"><i class="fa-solid fa-bolt"></i> Inferência Neural Instantânea</span>
                             </div>
                         </div>
                     </div>

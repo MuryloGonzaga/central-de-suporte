@@ -8,6 +8,7 @@ Aplicação web completa para técnicos e equipe de suporte operacional da **Web
 
 | Recurso | Descrição |
 | :--- | :--- |
+| 🧠 **Assistente IA (Manuais)** | **Rede Neural Multicamadas (MLP)** treinada nos manuais técnicos oficiais da Suntech (ST4305, ST8300, ST8300R/H, ST340UR, Linha ST310 e ST8310UM). Compreende dúvidas em linguagem natural informal (gírias de instalador, erros de digitação, termos abreviados) e responde com máxima precisão citando páginas, diagramas de fios e procedimentos. |
 | 🚗 **Consulta Placa (AcheCar)** | Consulta dados completos do veículo na base pública (Marca, Modelo, Ano Fabricação/Modelo, Cor, Tipo, Combustível, Município/UF). Suporta consulta em massa com controle de intervalo contra bloqueio. |
 | 🛻 **Veículo WebRota** | Busca Marca e Modelo cadastrados diretamente na base do sistema WebRota. |
 | 📍 **Local de Instalação (OS)** | Localiza os seriais dos equipamentos e rastreia na última Ordem de Serviço finalizada (`Status E` ou `F`) onde o rastreador foi instalado no veículo ou máquina. |

@@ -11,6 +11,8 @@ from app.config import APP_NAME, DEBUG_MODE
 from app.services.achecar_service import AcheCarService, extrair_placas
 from app.services.webrota_service import WebrotaService
 from app.services.guias_service import GuiasService
+from app.ai.neural_model import neural_brain
+from app.ai.knowledge_base import KNOWLEDGE_CHUNKS, INTENTS_LIST
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -34,6 +36,11 @@ class PlacasRequest(BaseModel):
 class IdentificadoresRequest(BaseModel):
     identificadores: str = Field(..., description="Uma ou mais placas ou identificadores de equipamentos/máquinas")
 
+class ChatRequest(BaseModel):
+    mensagem: str = Field(..., description="Dúvida ou pergunta em linguagem natural sobre o aparelho ou instalação")
+    aparelho: Optional[str] = Field(None, description="Filtro opcional do modelo (ex: ST340UR, ST8300, ST310, ST8310UM)")
+    historico: Optional[List[Dict[str, str]]] = Field(None, description="Histórico prévio da conversa")
+
 # ==========================================
 # ROTAS DE PÁGINAS (FRONTEND)
 # ==========================================
@@ -47,7 +54,22 @@ async def pagina_inicial(request: Request):
         context={
             "app_name": APP_NAME,
             "cabos": GuiasService.get_cabos(),
-            "leds": GuiasService.get_leds()
+            "leds": GuiasService.get_leds(),
+            "aba_inicial": "tab-placa"
+        }
+    )
+
+@app.get("/chat", response_class=HTMLResponse)
+async def pagina_chat(request: Request):
+    """Página dedicada do Chat Inteligente com a Rede Neural dos Manuais"""
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "app_name": APP_NAME,
+            "cabos": GuiasService.get_cabos(),
+            "leds": GuiasService.get_leds(),
+            "aba_inicial": "tab-chat"
         }
     )
 
@@ -204,3 +226,52 @@ async def obter_guia_cabos():
 async def obter_guia_leds():
     """Retorna diagnóstico de piscadas de LEDs Suntech"""
     return GuiasService.get_leds()
+
+# ------------------------------------------
+# 6. Assistente de IA / Rede Neural dos Manuais
+# ------------------------------------------
+
+@app.post("/api/chat/perguntar")
+async def chat_perguntar(req: ChatRequest):
+    """
+    Processa a dúvida do técnico/usuário através da Rede Neural dos Manuais.
+    Entende o desejo do usuário em linguagem natural mesmo com digitação informal ou sem exatidão.
+    """
+    if not req.mensagem or not req.mensagem.strip():
+        raise HTTPException(status_code=400, detail="A pergunta não pode estar vazia.")
+
+    resultado = neural_brain.gerar_resposta(
+        query=req.mensagem,
+        filtro_aparelho=req.aparelho
+    )
+    return {
+        "sucesso": True,
+        **resultado
+    }
+
+@app.get("/api/chat/status")
+async def chat_status_rede_neural():
+    """Retorna o status e arquitetura da Rede Neural carregada"""
+    return {
+        "status": "online" if neural_brain.is_trained else "treinando",
+        "arquitetura": "Rede Neural Multicamadas (MLPClassifier: 128 -> 64 nós, ReLU, Softmax)",
+        "vetorizacao": "TF-IDF N-Grams (1 a 3) + Projeção Latente SVD Denso (LSA)",
+        "total_intencoes": len(INTENTS_LIST),
+        "intencoes": INTENTS_LIST,
+        "total_chunks_conhecimento": len(KNOWLEDGE_CHUNKS),
+        "aparelhos_cobertos": [
+            "ST4305", "ST8300", "ST8300R", "ST8300H",
+            "ST340UR",
+            "ST310U", "ST310UC", "ST310UC2", "ST310ULC",
+            "ST8310UM", "ST8210"
+        ]
+    }
+
+@app.post("/api/chat/retreinar")
+async def chat_retreinar_rede_neural():
+    """Força o retreinamento da Rede Neural a partir da base atualizada de manuais"""
+    neural_brain.treinar()
+    return {
+        "sucesso": True,
+        "mensagem": "Rede neural retreinada e salva com sucesso!"
+    }
