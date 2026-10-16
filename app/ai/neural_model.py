@@ -189,7 +189,27 @@ SYNONYMS_CANONICAL: Dict[str, str] = {
     "st310": "mod_st310",
     "st8310um": "mod_st8310um",
     "st8310": "mod_st8310um",
-    "st8210": "mod_st8210"
+    "st8210": "mod_st8210",
+    "st4315": "mod_st4305",
+    "rfid": "perif_rfid",
+    "sgbras": "perif_sgbras",
+    "getscale": "perif_getscale",
+    "teclado": "perif_teclado",
+    "st300evt": "cmd_st300evt",
+    "st300svc": "cmd_st300svc",
+    "st300cmd": "cmd_st300cmd",
+    "st300dex": "cmd_st300dex",
+    "prg": "cmd_prg",
+    "at+gtdos": "cmd_gtdos",
+    "gtdos": "cmd_gtdos",
+    "template": "cmd_template",
+    "templates": "cmd_template",
+    "beep": "cmd_beep",
+    "buzzer": "cmd_buzzer",
+    "deep sleep": "cmd_deep_sleep",
+    "driving behavior": "cmd_driving_behavior",
+    "bloquear veiculo": "cmd_bloquear",
+    "desbloquear veiculo": "cmd_desbloquear"
 }
 
 
@@ -352,6 +372,40 @@ BASE_TRAINING_SAMPLES: List[Tuple[str, str]] = [
     ("comando eraseall apagar memoria", "comandos"),
     ("comando statusreq pedir posicao", "comandos"),
     ("estrutura de comandos st300cmd", "comandos"),
+    ("comando de ignicao virtual por tensao st310", "comandos"),
+    ("comando de ignicao virtual por tensao st340", "comandos"),
+    ("comando de ignicao fisica st310", "comandos"),
+    ("comando de ignicao fisica st340", "comandos"),
+    ("comando ignicao por deslocamento st310u", "comandos"),
+    ("comando ignicao por deslocamento st340ur", "comandos"),
+    ("alterar beep de velocidade st340", "comandos"),
+    ("comando buzzer enable st310 st340", "comandos"),
+    ("comando buzzer disable st310 st340", "comandos"),
+    ("comando buzzer st310u", "comandos"),
+    ("comando buzzer st340", "comandos"),
+    ("comando habilitar deep sleep st310 st340", "comandos"),
+    ("comando desabilitar deep sleep st310", "comandos"),
+    ("comando ignicao virtual acelerometro st8300 st4305", "comandos"),
+    ("comando ignicao virtual tensao st8310", "comandos"),
+    ("comando ignicao fisica pos chave st8300 st4305", "comandos"),
+    ("alterar beep de velocidade 4g st8300 st4305 st8310", "comandos"),
+    ("comando buzzer habilitar st8300", "comandos"),
+    ("comando buzzer desabilitar st8300", "comandos"),
+    ("modo sleep desabilitado st8300", "comandos"),
+    ("comando sleep profundo st8300 st4305", "comandos"),
+    ("comando sleep baixo consumo gprs mantido st8310", "comandos"),
+    ("comando driving behavior st8300", "comandos"),
+    ("comando driving behavior completo st8310 st4305", "comandos"),
+    ("comando de bloquear veiculo gv50 4g", "comandos"),
+    ("comando de desbloquear veiculo gv50 4g queclink", "comandos"),
+    ("comando rfid get identificacao de motorista", "comandos"),
+    ("comando rfid sgbras 09.2", "comandos"),
+    ("comando rfid sgbras 04.8", "comandos"),
+    ("comando teclado sgbras ativar rfid", "comandos"),
+    ("comando teclado sgbras ativar matricula", "comandos"),
+    ("comando timeout id getscale", "comandos"),
+    ("tabela de comandos dos equipamentos", "comandos"),
+    ("template de comandos por modelo", "comandos"),
 
     # Intenção: comandos_rs232
     ("comandos para porta serial rs232", "comandos_rs232"),
@@ -522,7 +576,7 @@ class NeuralManualBrain:
 
         if "queclink" in q or "gv50cg" in q or "gv50" in q or "gv 50" in q:
             return "Queclink GV50CG"
-        if "st4305" in q:
+        if "st4305" in q or "st4315" in q:
             return "ST4305"
         if "st8300r" in q:
             return "ST8300R"
@@ -546,6 +600,8 @@ class NeuralManualBrain:
             return "ST8310UM"
         if "st8210" in q:
             return "ST8210"
+        if "rfid" in q or "sgbras" in q or "getscale" in q or "matricula" in q or "identificador" in q:
+            return "Identificador de Motorista"
 
         return None
 
@@ -742,6 +798,272 @@ class NeuralManualBrain:
         tem_dpa = bool(re.search(r'\b(dpa|calibrar|calibracao|calibra)\b', q))
         tem_senha = bool(re.search(r'\b(senha|password|st5656)\b', q))
         tem_ip67 = bool(re.search(r'\b(ip67|agua|chuva|molhar|estanque|vedacao)\b', q))
+
+        # ---------------------------------------------------------------------
+        # 0. PERGUNTAS DE COMANDOS / TEMPLATES DE CONFIGURAÇÃO (Prioritário)
+        # ---------------------------------------------------------------------
+        tem_palavra_comando = bool(re.search(r'\b(comando|comandos|template|templates|st300evt|st300svc|st300cmd|st300dex|prg|gtdos|at\+gtdos|beep|buzzer|rfid|sgbras|matricula|getscale|bloquear|desbloquear|deep sleep|driving behavior)\b', q))
+        if (tem_palavra_comando and not ("como ligar" in q or "esquema" in q or "pinagem" in q or "fio" in q)) or intencao == "comandos":
+            # 1. Comandos Queclink GV50 4G (Bloqueio / Desbloqueio)
+            if is_gv50 or "gv50" in q or "queclink" in q:
+                if "desbloque" in q or "liberar" in q:
+                    return (
+                        f"### 🔓 Comando de Desbloqueio - Queclink GV50 4G (GV50CG)\n"
+                        f"**Manual e Tabela Operacional:** Queclink GV50 4G\n\n"
+                        f"**Template de Envio:**\n"
+                        f"```text\n"
+                        f"AT+GTDOS=gv50cg,0,1,1,0,0,0,,,0,0,5,,,,FFFF$\n"
+                        f"```\n\n"
+                        f"> ⚠️ **AVISO OBRIGATÓRIO:** **EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!**\n"
+                        f"> Para que o Queclink GV50 processe e confirme a liberação, a ignição do veículo deve estar obrigatoriamente ligada.\n\n"
+                        f"• **Função:** Desativa a saída digital (Pino 4 - Fio Marrom / OUT) restabelecendo a partida do motor."
+                    )
+                elif "bloque" in q or "corte" in q or "imobiliz" in q:
+                    return (
+                        f"### 🔒 Comando de Bloqueio - Queclink GV50 4G (GV50CG)\n"
+                        f"**Manual e Tabela Operacional:** Queclink GV50 4G\n\n"
+                        f"**Template de Envio:**\n"
+                        f"```text\n"
+                        f"AT+GTDOS=gv50cg,0,1,1,1,0,0,,,0,0,5,,,,FFFF$\n"
+                        f"```\n\n"
+                        f"> ⚠️ **AVISO OBRIGATÓRIO:** **EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!**\n"
+                        f"> Para que o Queclink GV50 processe o comando de bloqueio, o veículo e o rastreador DEVEM estar com a ignição ligada.\n\n"
+                        f"• **Função:** Aciona a saída digital (Pino 4 - Fio Marrom / OUT) para atuar no relé e efetuar o corte da bomba/ignição."
+                    )
+                else:
+                    return (
+                        f"### 📡 Comandos Queclink GV50 4G (GV50CG)\n\n"
+                        f"| Comando | Template | Aviso Obrigatório |\n"
+                        f"| :--- | :--- | :--- |\n"
+                        f"| **Bloquear Veículo** | `AT+GTDOS=gv50cg,0,1,1,1,0,0,,,0,0,5,,,,FFFF$` | ⚠️ **EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!** |\n"
+                        f"| **Desbloquear Veículo** | `AT+GTDOS=gv50cg,0,1,1,0,0,0,,,0,0,5,,,,FFFF$` | ⚠️ **EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!** |"
+                    )
+
+            # 2. Identificador de Motorista / RFID / SGBRAS / Teclado / GetScale
+            if any(k in q for k in ["rfid", "sgbras", "matricula", "getscale", "identificador", "motorista", "st300dex"]):
+                if "teclado" in q:
+                    if "matricula" in q:
+                        return (
+                            f"### ⌨️ Comando TECLADO SGBRAS (Ativar Matrícula)\n\n"
+                            f"**Template:**\n"
+                            f"```text\n"
+                            f"DEX;SERIAL;0008;SGBT|17|;90\n"
+                            f"```\n"
+                            f"• Habilita a digitação manual de matrícula no teclado numérico SGBRAS. Substitua `SERIAL` pelo serial do rastreador."
+                        )
+                    elif "rfid" in q:
+                        return (
+                            f"### ⌨️ Comando TECLADO SGBRAS (Ativar RFID)\n\n"
+                            f"**Template:**\n"
+                            f"```text\n"
+                            f"DEX;SERIAL;0008;SGBT|18|;91\n"
+                            f"```\n"
+                            f"• Habilita o leitor de cartão RFID integrado ao teclado SGBRAS. Substitua `SERIAL` pelo serial do rastreador."
+                        )
+                elif "getscale" in q or "timeout" in q:
+                    return (
+                        f"### ⏱️ Comando Timeout ID GetScale\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"DEX;SERIAL;0006;709|0|;C8\n"
+                        f"```\n"
+                        f"• Configura o timeout de leitura de identificação GetScale via porta serial DEX. Substitua `SERIAL`."
+                    )
+                elif "09.2" in q:
+                    return (
+                        f"### 💳 Comando RFID SGBRAS (09.2)\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"ST300DEX;SERIAL;02;10;SGBT|09.2|;F1\n"
+                        f"```\n"
+                        f"• Configuração do leitor RFID SGBRAS versão 09.2. Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "04.8" in q:
+                    return (
+                        f"### 💳 Comando RFID SGBRAS (04.8)\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"ST300DEX;SERIAL;02;10;SGBT|04.8|;F2\n"
+                        f"```\n"
+                        f"• Configuração do leitor RFID SGBRAS versão 04.8. Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "sgbras" in q:
+                    return (
+                        f"### 💳 Comando RFID GET - Identificação de Motorista / Passageiro (SGBRAS)\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"ST300DEX;SERIAL;02;19;GTSL|7|1|2|719|0|1|;3\n"
+                        f"```\n"
+                        f"• Configuração do RFID SGBRAS com parâmetro GTSL. Substitua `SERIAL` pelo serial do aparelho."
+                    )
+                elif "0009" in q:
+                    return (
+                        f"### 💳 Comando RFID GET (DEX 0009)\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"DEX;SERIAL;0009;718|1|;C9;80\n"
+                        f"```\n"
+                        f"• Inicialização do leitor RFID GET via DEX. Substitua `SERIAL`."
+                    )
+                else:
+                    return (
+                        f"### 💳 Comandos de Identificador de Motorista (RFID / Teclado / GetScale)\n\n"
+                        f"| Comando | Template |\n"
+                        f"| :--- | :--- |\n"
+                        f"| **RFID GET (1. Motorista/Passageiro)** | `ST300DEX;02;6;718|1|;C9` |\n"
+                        f"| **RFID GET (SGBRAS GTSL)** | `ST300DEX;SERIAL;02;19;GTSL|7|1|2|719|0|1|;3` |\n"
+                        f"| **RFID GET (DEX 0009)** | `DEX;SERIAL;0009;718|1|;C9;80` |\n"
+                        f"| **RFID SGBRAS (09.2)** | `ST300DEX;SERIAL;02;10;SGBT|09.2|;F1` |\n"
+                        f"| **RFID SGBRAS (04.8)** | `ST300DEX;SERIAL;02;10;SGBT|04.8|;F2` |\n"
+                        f"| **TECLADO SGBRAS (Ativar RFID)** | `DEX;SERIAL;0008;SGBT|18|;91` |\n"
+                        f"| **TECLADO SGBRAS (Ativar Matrícula)** | `DEX;SERIAL;0008;SGBT|17|;90` |\n"
+                        f"| **Timeout ID GetScale** | `DEX;SERIAL;0006;709|0|;C8` |\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador onde o periférico está conectado."
+                    )
+
+            # 3. Comandos Suntech ST8310 / ST8300 / ST4315 / ST4305 (PRG)
+            if is_st8300 or is_st8310 or "prg" in q or "4g" in q:
+                if "acelerometro" in q:
+                    return (
+                        f"### 📡 Comando de Ignição Virtual por Acelerômetro - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"PRG;SERIAL;17;00#03\n"
+                        f"```\n"
+                        f"• Detecta ignição virtualmente através do acelerômetro interno (G-sensor). Substitua `SERIAL`."
+                    )
+                elif "tensao" in q or "voltagem" in q:
+                    return (
+                        f"### 📡 Comando de Ignição Virtual por Tensão - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"PRG;SERIAL;17;00#02\n"
+                        f"```\n"
+                        f"• Detecta ignição virtualmente pela variação da tensão da bateria. Substitua `SERIAL`."
+                    )
+                elif "fisica" in q or "pos chave" in q:
+                    return (
+                        f"### 📡 Comando de Ignição Física (Pós-Chave) - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"PRG;SERIAL;17;00#01\n"
+                        f"```\n"
+                        f"• Configura a detecção convencional de ignição pelo Fio Azul conectado ao pós-chave. Substitua `SERIAL`."
+                    )
+                elif "beep" in q or "velocidade" in q:
+                    return (
+                        f"### 🔊 Comando Alterar Beep de Velocidade (4G)\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"PRG;SERIAL;16;21#VELOCIDADE\n"
+                        f"```\n"
+                        f"• Define o limite para disparo do beep sonoro. Substitua `VELOCIDADE` pelo limite em km/h (ex: 80, 100, 120) e `SERIAL` pelo serial."
+                    )
+                elif "buzzer" in q:
+                    return (
+                        f"### 🔊 Comandos de Buzzer - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"• **Habilitar Buzzer:** `PRG;SERIAL;10;64#01`\n"
+                        f"• **Desabilitar Buzzer:** `PRG;SERIAL;10;64#00`\n"
+                        f"Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "sleep" in q:
+                    return (
+                        f"### 💤 Comandos de Modo Sleep - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"• **Modo Sleep Desabilitado (Consumo normal):** `PRG;SERIAL;19;30#00`\n"
+                        f"• **Sleep Profundo (Ultra-baixo consumo <3mA):** `PRG;SERIAL;19;30#01`\n"
+                        f"• **Sleep Baixo consumo (GPRS/LTE Mantido):** `PRG;SERIAL;19;30#02`\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do equipamento."
+                    )
+                elif "driving" in q or "behavior" in q or "telemetria" in q:
+                    return (
+                        f"### 🏎️ Comandos Driving Behavior (Telemetria) - Suntech 4G\n"
+                        f"**Aparelhos:** ST8310 / ST8300 / ST4315 / ST4305\n\n"
+                        f"• **Habilitar Função:** `PRG;SERIAL;19;10#01`\n"
+                        f"• **Configuração Completa:**\n"
+                        f"```text\n"
+                        f"PRG;SERIAL;19;10#01;12#40.0;13#45.0;14#60.0;21#20.0;22#20.0;23#20.0\n"
+                        f"```\n"
+                        f"Parâmetros: `12#40.0` (aceleração brusca), `13#45.0` (frenagem brusca), `14#60.0` (curva brusca), `21#20.0`, `22#20.0`, `23#20.0` (impactos)."
+                    )
+
+            # 4. Comandos Suntech ST310 / ST340
+            if is_st310 or is_st340 or "st310" in q or "st340" in q:
+                if "tensao" in q or ("virtual" in q and not "deslocamento" in q):
+                    cmd_310 = "ST300EVT;SERIAL;02;2;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0"
+                    cmd_340 = "ST300EVT;SERIAL;02;2;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3"
+                    return (
+                        f"### ⚡ Comandos de Ignição Virtual por Tensão - ST310 / ST340\n\n"
+                        f"• **Para ST310:**\n"
+                        f"```text\n"
+                        f"{cmd_310}\n"
+                        f"```\n\n"
+                        f"• **Para ST340 / ST340UR:**\n"
+                        f"```text\n"
+                        f"{cmd_340}\n"
+                        f"```\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "fisica" in q:
+                    cmd_310 = "ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0"
+                    cmd_340 = "ST300EVT;SERIAL;02;0;10;0;12;13;9;30;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3"
+                    return (
+                        f"### 🔌 Comandos de Ignição Física (Pós-Chave) - ST310 / ST340\n\n"
+                        f"• **Para ST310:**\n"
+                        f"```text\n"
+                        f"{cmd_310}\n"
+                        f"```\n\n"
+                        f"• **Para ST340 / ST340UR:**\n"
+                        f"```text\n"
+                        f"{cmd_340}\n"
+                        f"```\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "deslocamento" in q:
+                    cmd_310 = "ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0"
+                    cmd_340 = "ST300EVT;SERIAL;02;3;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3"
+                    return (
+                        f"### 🚗 Comandos de Ignição por Deslocamento (GPS) - ST310 / ST340\n\n"
+                        f"• **Para ST310U:**\n"
+                        f"```text\n"
+                        f"{cmd_310}\n"
+                        f"```\n\n"
+                        f"• **Para ST340UR:**\n"
+                        f"```text\n"
+                        f"{cmd_340}\n"
+                        f"```\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "beep" in q or "velocidade" in q:
+                    return (
+                        f"### 🔊 Comando Alterar Beep de Velocidade - ST340\n\n"
+                        f"**Template:**\n"
+                        f"```text\n"
+                        f"ST300SVC;SERIAL;02;1;VELOCIDADE;0;0;0;1;1;0;1;0;0;0;1;1\n"
+                        f"```\n"
+                        f"• Substitua `VELOCIDADE` pelo limite em km/h (ex: 80, 100, 110) e `SERIAL` pelo serial do aparelho."
+                    )
+                elif "buzzer" in q:
+                    return (
+                        f"### 🔊 Comandos de Buzzer - ST310 / ST340\n\n"
+                        f"• **Acionar / Ligar Buzzer (Enable 1):** `ST300CMD;SERIAL;02;Enable1`\n"
+                        f"• **Desligar Buzzer (Disable 1):** `ST300CMD;SERIAL;02;Disable1`\n"
+                        f"• **Configuração Buzzer ST310U (110 km/h):** `ST300SVC;SERIAL;02;1;110;0;0;0;0;0;1;0;0;0;0`\n"
+                        f"• **Configuração Buzzer ST340 (120 km/h):** `ST300SVC;SERIAL;02;1;120;0;0;0;1;1;0;1;0;0;0;1;1`\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador."
+                    )
+                elif "sleep" in q:
+                    return (
+                        f"### 💤 Comandos Deep Sleep - ST310 / ST340\n\n"
+                        f"• **Habilitar Deep Sleep:** `ST300SVC;SERIAL;02;0;200;1;0;0;0;1;0;1;0;0;0;1;1`\n"
+                        f"• **Desabilitar Deep Sleep / Qualquer Sleep:** `ST300SVC;SERIAL;02;0;200;0;0;0;0;0;1;0;1;0;0;0;1`\n\n"
+                        f"> 💡 Substitua `SERIAL` pelo serial do rastreador."
+                    )
 
         # ---------------------------------------------------------------------
         # 1. PERGUNTAS DE DIAGNÓSTICO DE LEDS (Prioridade se mencionou LED/Piscada)

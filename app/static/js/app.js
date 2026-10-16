@@ -33,11 +33,8 @@ function initNavigation() {
         'tab-home': 'Bem-vindo à Central de Suporte WebRota',
         'tab-chat': 'Assistente Técnico IA - Manuais Suntech',
         'tab-placa': 'Consulta de Placa (Base Pública AcheCar)',
-        'tab-veiculo': 'Consulta de Veículo no Cadastro WebRota',
         'tab-local': 'Rastreamento de Local de Instalação (Última OS)',
-        'tab-ranking': 'Rankings de Execução de Ordens de Serviço',
-        'tab-cabos': 'Guia de Cabos & Cores de Instalação',
-        'tab-leds': 'Diagnóstico de LEDs Suntech'
+        'tab-ranking': 'Rankings de Execução de Ordens de Serviço'
     };
 
     navItems.forEach(item => {
@@ -94,6 +91,7 @@ function initMobileMenu() {
 // TAB 1: CONSULTA ACHECAR (BASE PÚBLICA COM STREAMING & PROGRESSO)
 // --------------------------------------------------------------------
 let acheCarEventSource = null;
+let acheCarResultados = [];
 
 function adicionarLinhaAcheCar(item) {
     const tbody = document.getElementById('tbody-achecar');
@@ -153,6 +151,7 @@ async function consultarAcheCarStream() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
     resultCard.style.display = 'block';
     tbody.innerHTML = '';
+    acheCarResultados = [];
     if (countSpan) countSpan.textContent = '0';
 
     if (progressWrapper) {
@@ -181,6 +180,7 @@ async function consultarAcheCarStream() {
                     if (progressPct) progressPct.textContent = `${data.percentual}%`;
                     if (progressFill) progressFill.style.width = `${data.percentual}%`;
                     if (data.resultado) {
+                        acheCarResultados.push(data.resultado);
                         adicionarLinhaAcheCar(data.resultado);
                     }
                 } else if (data.tipo === 'pausa') {
@@ -223,77 +223,10 @@ async function consultarAcheCarStream() {
 window.consultarAcheCar = consultarAcheCarStream;
 
 // --------------------------------------------------------------------
-// TAB 2: CONSULTA WEBROTA (VEÍCULO)
+// TAB 2: CONSULTA LOCAL DE INSTALAÇÃO (COM PROGRESSO & BLOCO ÚNICO PARA 2 EQUIPAMENTOS)
 // --------------------------------------------------------------------
-async function consultarVeiculosWebrota() {
-    const input = document.getElementById('input-placas-webrota');
-    const btn = document.getElementById('btn-consultar-webrota');
-    const resultCard = document.getElementById('resultado-webrota');
-    const tbody = document.getElementById('tbody-webrota');
-    const countSpan = document.getElementById('count-webrota');
+let localResultados = [];
 
-    const texto = input.value.trim();
-    if (!texto) {
-        showToast('Informe ao menos uma placa para consultar na WebRota.', 'warning');
-        return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Consultando...';
-    resultCard.style.display = 'block';
-    tbody.innerHTML = '<tr><td colspan="4" class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Consultando cadastro da WebRota...</td></tr>';
-
-    try {
-        const resp = await fetch('/api/consulta/veiculo', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ placas: texto })
-        });
-        const data = await resp.json();
-
-        if (!data.sucesso && (!data.resultados || data.resultados.length === 0)) {
-            tbody.innerHTML = `<tr><td colspan="4" class="empty-state">${data.mensagem || 'Nenhum veículo localizado.'}</td></tr>`;
-            countSpan.textContent = '0';
-            showToast(data.mensagem || 'Falha na busca.', 'error');
-            return;
-        }
-
-        tbody.innerHTML = '';
-        const resultados = data.resultados || [];
-        countSpan.textContent = resultados.length;
-
-        resultados.forEach(item => {
-            const tr = document.createElement('tr');
-            if (item.sucesso) {
-                tr.innerHTML = `
-                    <td><span class="tag-placa">${item.placa}</span></td>
-                    <td><strong>${item.marca || 'Desconhecida'}</strong></td>
-                    <td>${item.modelo || 'Desconhecido'}</td>
-                    <td><span class="badge badge-success"><i class="fa-solid fa-check"></i> Cadastrado</span></td>
-                `;
-            } else {
-                tr.innerHTML = `
-                    <td><span class="tag-placa">${item.placa}</span></td>
-                    <td colspan="2" style="color: #94A3B8;">${item.erro || 'Não localizado no cadastro.'}</td>
-                    <td><span class="badge badge-warning"><i class="fa-solid fa-question"></i> Não Cadastrado</span></td>
-                `;
-            }
-            tbody.appendChild(tr);
-        });
-
-        showToast(`${resultados.length} veículo(s) consultado(s)!`, 'success');
-    } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="4" class="empty-state">Erro ao comunicar com a WebRota: ${err.message}</td></tr>`;
-        showToast('Erro de comunicação.', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-search"></i> Consultar no WebRota';
-    }
-}
-
-// --------------------------------------------------------------------
-// TAB 3: CONSULTA LOCAL DE INSTALAÇÃO (COM PROGRESSO & BLOCO ÚNICO PARA 2 EQUIPAMENTOS)
-// --------------------------------------------------------------------
 function adicionarCardLocal(item) {
     const container = document.getElementById('locais-cards-container');
     if (!container) return;
@@ -373,6 +306,7 @@ async function consultarLocalInstalacaoStream() {
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Rastreando OS...';
     resultCard.style.display = 'block';
     container.innerHTML = '';
+    localResultados = [];
 
     if (progressWrapper) {
         progressWrapper.style.display = 'block';
@@ -421,6 +355,7 @@ async function consultarLocalInstalacaoStream() {
                             if (progressPct) progressPct.textContent = `${data.percentual}%`;
                             if (progressFill) progressFill.style.width = `${data.percentual}%`;
                             if (data.resultado) {
+                                localResultados.push(data.resultado);
                                 adicionarCardLocal(data.resultado);
                             }
                         } else if (data.tipo === 'concluido' || data.tipo === 'erro') {
@@ -601,6 +536,18 @@ function limparCampo(inputId, resultCardId) {
     const card = document.getElementById(resultCardId);
     if (card) card.style.display = 'none';
 
+    if (resultCardId === 'resultado-achecar') {
+        acheCarResultados = [];
+        const tbody = document.getElementById('tbody-achecar');
+        if (tbody) tbody.innerHTML = '';
+        const countSpan = document.getElementById('count-achecar');
+        if (countSpan) countSpan.textContent = '0';
+    } else if (resultCardId === 'resultado-local') {
+        localResultados = [];
+        const container = document.getElementById('locais-cards-container');
+        if (container) container.innerHTML = '';
+    }
+
     showToast('Campos e resultados limpos.', 'info');
 }
 
@@ -615,6 +562,182 @@ function formatarDataIso(isoStr) {
         return isoStr;
     }
 }
+
+// --------------------------------------------------------------------
+// FUNÇÕES DE CÓPIA: MENSAGEM ORGANIZADA & CSV (PLANILHA)
+// --------------------------------------------------------------------
+
+/**
+ * Copia os resultados de Consulta de Placa (AcheCar) no formato de mensagem organizada
+ */
+function copiarMensagemAcheCar() {
+    if (!acheCarResultados || acheCarResultados.length === 0) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+
+    const blocos = acheCarResultados.map(item => {
+        if (item.sucesso) {
+            const marcaModelo = `${item.marca || 'N/A'} ${item.modelo || ''}`.trim();
+            const ano = `${item.ano_fabricacao || 'N/A'} / ${item.ano_modelo || 'N/A'}`;
+            const tipoComb = `${item.tipo_veiculo || 'N/A'} - ${item.combustivel || 'N/A'}`;
+            const munUf = `${item.municipio || 'N/A'} / ${item.uf || 'N/A'}`;
+            return [
+                `🚗 *Placa:* ${item.placa}`,
+                `• *Marca/Modelo:* ${marcaModelo}`,
+                `• *Ano:* ${ano}`,
+                `• *Cor:* ${item.cor || 'N/A'}`,
+                `• *Tipo/Comb.:* ${tipoComb}`,
+                `• *Município/UF:* ${munUf}`,
+                `• *Status:* Encontrado`
+            ].join('\n');
+        } else {
+            return [
+                `🚗 *Placa:* ${item.placa}`,
+                `• *Status:* Falha (${item.erro || 'Não foi possível obter os dados.'})`
+            ].join('\n');
+        }
+    });
+
+    const textoFinal = blocos.join('\n\n' + '─'.repeat(36) + '\n\n');
+    navigator.clipboard.writeText(textoFinal).then(() => {
+        showToast('Mensagem organizada copiada com sucesso!', 'success');
+    }).catch(() => {
+        showToast('Não foi possível copiar para a área de transferência.', 'error');
+    });
+}
+window.copiarMensagemAcheCar = copiarMensagemAcheCar;
+
+/**
+ * Copia os resultados de Consulta de Placa (AcheCar) no formato de planilha (TSV com cabeçalho)
+ */
+function copiarCSVAcheCar() {
+    if (!acheCarResultados || acheCarResultados.length === 0) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+
+    const colunas = ['Placa', 'Marca / Modelo', 'Ano Fab / Modelo', 'Cor', 'Tipo / Combustível', 'Município - UF', 'Status'];
+    const linhas = acheCarResultados.map(item => {
+        if (item.sucesso) {
+            const marcaModelo = `${item.marca || ''} ${item.modelo || ''}`.trim();
+            const ano = `${item.ano_fabricacao || ''} / ${item.ano_modelo || ''}`.trim();
+            const tipoComb = `${item.tipo_veiculo || ''} - ${item.combustivel || ''}`.trim();
+            const munUf = `${item.municipio || ''} - ${item.uf || ''}`.trim();
+            return [
+                item.placa,
+                marcaModelo,
+                ano,
+                item.cor || '',
+                tipoComb,
+                munUf,
+                'Encontrado'
+            ].join('\t');
+        } else {
+            return [
+                item.placa,
+                '-',
+                '-',
+                '-',
+                '-',
+                '-',
+                item.erro || 'Falha'
+            ].join('\t');
+        }
+    });
+
+    const csvFinal = [colunas.join('\t'), ...linhas].join('\n');
+    navigator.clipboard.writeText(csvFinal).then(() => {
+        showToast('Planilha (CSV) copiada para a área de transferência!', 'success');
+    }).catch(() => {
+        showToast('Não foi possível copiar os dados.', 'error');
+    });
+}
+window.copiarCSVAcheCar = copiarCSVAcheCar;
+
+/**
+ * Copia os resultados de Local de Instalação no formato de mensagem organizada
+ */
+function copiarMensagemLocal() {
+    if (!localResultados || localResultados.length === 0) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+
+    const blocos = localResultados.map(item => {
+        let texto = `🛠️ *Placa/Identificador:* ${item.identificador}`;
+        if (item.sucesso && item.seriais && item.seriais.length > 0) {
+            item.seriais.forEach((ser, idx) => {
+                const labelEquip = item.possui_multiplos_equipamentos ? ` (Equipamento ${ser.numero_equipamento || (idx + 1)})` : '';
+                const dataFormatada = ser.data_execucao ? formatarDataIso(ser.data_execucao) : 'Sem data';
+                const statusText = ser.status ? `Status (${ser.status})` : 'Sem OS Válida';
+                texto += `\n• *Serial${labelEquip}:* ${ser.serial}`;
+                texto += `\n• *Local de Instalação:* ${ser.local || 'Não informado'}`;
+                texto += `\n• *Data da OS:* ${dataFormatada}`;
+                texto += `\n• *Status da OS:* ${statusText}`;
+            });
+        } else {
+            texto += `\n• *Status:* Não Localizado (${item.erro || 'Sem dispositivo vinculado ou não encontrado'})`;
+        }
+        return texto;
+    });
+
+    const textoFinal = blocos.join('\n\n' + '─'.repeat(36) + '\n\n');
+    navigator.clipboard.writeText(textoFinal).then(() => {
+        showToast('Mensagem organizada copiada com sucesso!', 'success');
+    }).catch(() => {
+        showToast('Não foi possível copiar para a área de transferência.', 'error');
+    });
+}
+window.copiarMensagemLocal = copiarMensagemLocal;
+
+/**
+ * Copia os resultados de Local de Instalação no formato de planilha (TSV com cabeçalho)
+ */
+function copiarCSVLocal() {
+    if (!localResultados || localResultados.length === 0) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+
+    const colunas = ['Placa / Identificador', 'Equipamento', 'Serial', 'Local de Instalação', 'Data da OS', 'Status da OS'];
+    const linhas = [];
+
+    localResultados.forEach(item => {
+        if (item.sucesso && item.seriais && item.seriais.length > 0) {
+            item.seriais.forEach((ser, idx) => {
+                const equip = item.possui_multiplos_equipamentos ? `Equipamento ${ser.numero_equipamento || (idx + 1)}` : 'Equipamento Único';
+                const dataFormatada = ser.data_execucao ? formatarDataIso(ser.data_execucao) : 'Sem data';
+                const statusText = ser.status ? `Status (${ser.status})` : 'Sem OS Válida';
+                linhas.push([
+                    item.identificador,
+                    equip,
+                    ser.serial || '',
+                    ser.local || '',
+                    dataFormatada,
+                    statusText
+                ].join('\t'));
+            });
+        } else {
+            linhas.push([
+                item.identificador,
+                '-',
+                '-',
+                item.erro || 'Não localizado',
+                '-',
+                'Não Localizado'
+            ].join('\t'));
+        }
+    });
+
+    const csvFinal = [colunas.join('\t'), ...linhas].join('\n');
+    navigator.clipboard.writeText(csvFinal).then(() => {
+        showToast('Planilha (CSV) copiada para a área de transferência!', 'success');
+    }).catch(() => {
+        showToast('Não foi possível copiar os dados.', 'error');
+    });
+}
+window.copiarCSVLocal = copiarCSVLocal;
 
 function copiarTabela(tableId) {
     const table = document.getElementById(tableId);

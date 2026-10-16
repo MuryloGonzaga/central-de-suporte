@@ -40,10 +40,6 @@
                     <i class="fa-solid fa-car-side"></i>
                     <span>Consulta Placa (AcheCar)</span>
                 </button>
-                <button class="nav-item{% if aba_inicial == 'tab-veiculo' %} active{% endif %}" data-tab="tab-veiculo">
-                    <i class="fa-solid fa-truck-pickup"></i>
-                    <span>Veículo WebRota</span>
-                </button>
                 <button class="nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
                     <i class="fa-solid fa-map-location-dot"></i>
                     <span>Local de Instalação</span>
@@ -51,14 +47,6 @@
                 <button class="nav-item{% if aba_inicial == 'tab-ranking' %} active{% endif %}" data-tab="tab-ranking">
                     <i class="fa-solid fa-trophy"></i>
                     <span>Rankings de OS</span>
-                </button>
-                <button class="nav-item{% if aba_inicial == 'tab-cabos' %} active{% endif %}" data-tab="tab-cabos">
-                    <i class="fa-solid fa-plug"></i>
-                    <span>Guia de Cabos</span>
-                </button>
-                <button class="nav-item{% if aba_inicial == 'tab-leds' %} active{% endif %}" data-tab="tab-leds">
-                    <i class="fa-solid fa-lightbulb"></i>
-                    <span>Diagnóstico de LEDs</span>
                 </button>
             </nav>
 
@@ -137,22 +125,6 @@
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
                             </div>
-                            <div class="welcome-action-card" data-goto="tab-veiculo">
-                                <div class="wac-icon bg-cyan"><i class="fa-solid fa-truck-pickup"></i></div>
-                                <div class="wac-info">
-                                    <h4>Veículo WebRota</h4>
-                                    <p>Consulte marca e modelo cadastrados diretamente no sistema WebRota.</p>
-                                </div>
-                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
-                            </div>
-                            <div class="welcome-action-card" data-goto="tab-cabos">
-                                <div class="wac-icon bg-red"><i class="fa-solid fa-plug"></i></div>
-                                <div class="wac-info">
-                                    <h4>Guia de Cabos</h4>
-                                    <p>Consulte o padrão de cores dos chicotes para instalação dos rastreadores.</p>
-                                </div>
-                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
-                            </div>
                         </div>
                     </div>
                 </section>
@@ -202,11 +174,11 @@
                         <div class="card-header flex-between">
                             <h4>Resultados da Consulta (<span id="count-achecar">0</span>)</h4>
                             <div class="actions-header">
-                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-achecar')">
-                                    <i class="fa-solid fa-copy"></i> Copiar Tudo
+                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemAcheCar()">
+                                    <i class="fa-solid fa-copy"></i> Copiar
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-achecar', 'consulta_placas_achecar.csv')">
-                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                                <button class="btn btn-sm btn-outline" onclick="copiarCSVAcheCar()">
+                                    <i class="fa-solid fa-table"></i> Copiar CSV
                                 </button>
                             </div>
                         </div>
@@ -230,62 +202,7 @@
                     </div>
                 </section>
 
-                <!-- TAB 2: VEÍCULO WEBROTA -->
-                <section class="tab-pane{% if aba_inicial == 'tab-veiculo' %} active{% endif %}" id="tab-veiculo">
-                    <div class="card">
-                        <div class="card-header">
-                            <div>
-                                <h3><i class="fa-solid fa-truck-pickup"></i> Consulta de Veículo no Cadastro WebRota</h3>
-                                <p class="card-subtitle">Busca a Marca e o Modelo cadastrados diretamente no sistema WebRota.</p>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="input-placas-webrota">Placas dos Veículos:</label>
-                                <textarea id="input-placas-webrota" rows="4" placeholder="Exemplo:&#10;ABC1D23&#10;XYZ9876"></textarea>
-                            </div>
-                            <div class="form-actions right">
-                                <button class="btn btn-secondary" onclick="limparCampo('input-placas-webrota', 'resultado-webrota')">
-                                    <i class="fa-solid fa-eraser"></i> Limpar
-                                </button>
-                                <button class="btn btn-primary" id="btn-consultar-webrota" onclick="consultarVeiculosWebrota()">
-                                    <i class="fa-solid fa-search"></i> Consultar no WebRota
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Resultados WebRota -->
-                    <div class="card result-card" id="resultado-webrota" style="display: none;">
-                        <div class="card-header flex-between">
-                            <h4>Veículos Localizados (<span id="count-webrota">0</span>)</h4>
-                            <div class="actions-header">
-                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-webrota')">
-                                    <i class="fa-solid fa-copy"></i> Copiar
-                                </button>
-                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-webrota', 'veiculos_webrota.csv')">
-                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
-                                </button>
-                            </div>
-                        </div>
-                        <div class="card-body no-padding table-responsive">
-                            <table class="data-table" id="tabela-webrota">
-                                <thead>
-                                    <tr>
-                                        <th>Placa</th>
-                                        <th>Marca</th>
-                                        <th>Modelo</th>
-                                        <th>Situação</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tbody-webrota">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 3: LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO) -->
+                <!-- TAB 2: LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO) -->
                 <section class="tab-pane{% if aba_inicial == 'tab-local' %} active{% endif %}" id="tab-local">
                     <div class="card">
                         <div class="card-header">
@@ -326,11 +243,11 @@
                         <div class="card-header flex-between">
                             <h4>Locais de Instalação Encontrados</h4>
                             <div class="actions-header">
-                                <button class="btn btn-sm btn-outline" onclick="copiarTabela('tabela-local')">
-                                    <i class="fa-solid fa-copy"></i> Copiar Tudo
+                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemLocal()">
+                                    <i class="fa-solid fa-copy"></i> Copiar
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="exportarCSV('tabela-local', 'locais_instalacao.csv')">
-                                    <i class="fa-solid fa-file-csv"></i> Exportar CSV
+                                <button class="btn btn-sm btn-outline" onclick="copiarCSVLocal()">
+                                    <i class="fa-solid fa-table"></i> Copiar CSV
                                 </button>
                             </div>
                         </div>
@@ -409,109 +326,6 @@
                                 <div class="ranking-list" id="lista-ranking-mensal">
                                     <div class="loading-state">
                                         <i class="fa-solid fa-spinner fa-spin"></i> Carregando comparativo mensal...
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 5: GUIA DE CABOS -->
-                <section class="tab-pane{% if aba_inicial == 'tab-cabos' %} active{% endif %}" id="tab-cabos">
-                    <div class="card">
-                        <div class="card-header">
-                            <div>
-                                <h3><i class="fa-solid fa-plug text-primary"></i> Guia Rápido de Instalação - Padrão de Cores dos Cabos</h3>
-                                <p class="card-subtitle">Consulte visualmente o padrão elétrico e ligação dos chicotes 1 a 5 para instalação dos rastreadores.</p>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="chicotes-grid">
-                                {% for chicote in cabos %}
-                                <div class="chicote-card">
-                                    <div class="chicote-header">
-                                        <h4><i class="fa-solid fa-bolt"></i> {{ chicote.titulo }}</h4>
-                                    </div>
-                                    <div class="chicote-body">
-                                        {% for fio in chicote.fios %}
-                                        <div class="fio-item">
-                                            <div class="fio-indicador" style="background-color: {{ fio.cor_hex }}; {% if fio.texto_escuro %}border: 1px solid #94A3B8;{% endif %}"></div>
-                                            <div class="fio-info">
-                                                <strong class="fio-cor">{{ fio.cor_nome }}</strong>
-                                                <span class="fio-funcao badge-tipo-{{ fio.tipo }}">{{ fio.funcao }}</span>
-                                            </div>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% endfor %}
-                            </div>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- TAB 6: DIAGNÓSTICO DE LEDS -->
-                <section class="tab-pane{% if aba_inicial == 'tab-leds' %} active{% endif %}" id="tab-leds">
-                    <div class="card">
-                        <div class="card-header">
-                            <div>
-                                <h3><i class="fa-solid fa-lightbulb text-warning"></i> Guia de Diagnóstico de LEDs - Suntech</h3>
-                                <p class="card-subtitle">Identifique rapidamente o comportamento dos LEDs Azul (GPRS/Comunicação) e Vermelho (GPS).</p>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="leds-container">
-                                <!-- LED Azul -->
-                                <div class="led-card">
-                                    <div class="led-card-header bg-led-blue">
-                                        <div class="led-bulb led-blue-pulse"></div>
-                                        <div>
-                                            <h4>LED AZUL</h4>
-                                            <span>GPRS &amp; Comunicação de Rede</span>
-                                        </div>
-                                    </div>
-                                    <div class="led-card-body">
-                                        <div class="led-items-list">
-                                            {% for item in leds.azul.itens %}
-                                            <div class="led-item gravidade-{{ item.gravidade }}">
-                                                <div class="led-count">
-                                                    <strong>{{ item.piscadas }}</strong>
-                                                    <span>{{ "Piscada" if item.piscadas == 1 else "Piscadas" }}</span>
-                                                </div>
-                                                <div class="led-details">
-                                                    <h5>{{ item.titulo }}</h5>
-                                                    <p>{{ item.descricao }}</p>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- LED Vermelho -->
-                                <div class="led-card">
-                                    <div class="led-card-header bg-led-red">
-                                        <div class="led-bulb led-red-pulse"></div>
-                                        <div>
-                                            <h4>LED VERMELHO</h4>
-                                            <span>GPS &amp; Sinal de Satélite</span>
-                                        </div>
-                                    </div>
-                                    <div class="led-card-body">
-                                        <div class="led-items-list">
-                                            {% for item in leds.vermelho.itens %}
-                                            <div class="led-item gravidade-{{ item.gravidade }}">
-                                                <div class="led-count">
-                                                    <strong>{{ item.piscadas }}</strong>
-                                                    <span>{{ "Piscada" if item.piscadas == 1 else "Piscadas" }}</span>
-                                                </div>
-                                                <div class="led-details">
-                                                    <h5>{{ item.titulo }}</h5>
-                                                    <p>{{ item.descricao }}</p>
-                                                </div>
-                                            </div>
-                                            {% endfor %}
-                                        </div>
                                     </div>
                                 </div>
                             </div>

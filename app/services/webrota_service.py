@@ -268,16 +268,21 @@ class WebrotaService:
                             if os_item.get('status') in ('E', 'F')
                             and os_item.get('date_execution')
                             and os_item.get('type') != 'T'
-                            and (os_item.get('local') or '').strip() not in ('', '-')
                         ]
 
                         if os_filtradas:
                             os_filtradas.sort(key=lambda x: x.get('date_execution'), reverse=True)
                             ultima_os = os_filtradas[0]
+                            local_instalacao = ultima_os.get('local')
+                            if local_instalacao is None or not str(local_instalacao).strip():
+                                local_instalacao = "-"
+                            else:
+                                local_instalacao = str(local_instalacao).strip()
+
                             detalhes_seriais.append({
                                 "numero_equipamento": idx_eq + 1,
                                 "serial": serial,
-                                "local": ultima_os.get('local', 'Local não especificado'),
+                                "local": local_instalacao,
                                 "data_execucao": ultima_os.get('date_execution'),
                                 "status": ultima_os.get('status'),
                                 "possui_os": True
@@ -286,7 +291,7 @@ class WebrotaService:
                             detalhes_seriais.append({
                                 "numero_equipamento": idx_eq + 1,
                                 "serial": serial,
-                                "local": "Sem OS válida (status E/F ou local preenchido)",
+                                "local": "Sem OS válida (status E ou F)",
                                 "data_execucao": None,
                                 "status": None,
                                 "possui_os": False

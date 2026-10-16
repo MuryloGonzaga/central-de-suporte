@@ -928,8 +928,278 @@ Instalação do Chip SIM Card e Chave Interna no Queclink GV50CG:
 5. Fechamento: Encaixe a carcaça superior na inferior e aperte os parafusos firmemente de forma homogênea.
 6. Validação do Chip: Certifique-se de que a senha/código PIN do chip esteja desativada e que haja plano de dados M2M/IoT ativo com APN configurada.
 """
-    }
+    },
 
+    # =========================================================================
+    # 8. COMANDOS OPERACIONAIS E TEMPLATES POR EQUIPAMENTO
+    # =========================================================================
+    {
+        "id": "st310_st340_comandos_operacionais",
+        "device_family": "ST310 / ST340",
+        "topic": "comandos",
+        "title": "Comandos Operacionais e Templates - Suntech ST310 e ST340",
+        "keywords": [
+            "st310", "st340", "st310u", "st340ur", "ignicao virtual", "ignicao fisica",
+            "ignicao por deslocamento", "deslocamento", "beep de velocidade", "alterar beep",
+            "buzzer enable", "buzzer disable", "buzzer st310u", "buzzer st340",
+            "deep sleep", "habilitar deep sleep", "desabilitar deep sleep", "st300evt", "st300svc", "st300cmd"
+        ],
+        "pages": "Tabela de Comandos de Configuração Suntech ST310 / ST340",
+        "summary": "Templates de comandos para ST310 e ST340: ignição virtual por tensão, física, deslocamento, controle de buzzer, beep de velocidade e deep sleep.",
+        "content": """
+Tabela de Comandos Operacionais - Suntech ST310 / ST340:
+
+1. Ignição Virtual por Tensão (310):
+- Template: ST300EVT;SERIAL;02;2;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+- Descrição: Configura ignição virtual baseada na elevação de tensão da bateria do veículo no modelo ST310. Substitua SERIAL pelo serial de 9 ou 10 dígitos do aparelho.
+
+2. Ignição Virtual por Tensão (340):
+- Template: ST300EVT;SERIAL;02;2;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+- Descrição: Configura ignição virtual por tensão da bateria especificamente para o modelo ST340 / ST340UR.
+
+3. Ignição Física (310):
+- Template: ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+- Descrição: Configura a detecção física de ignição através do fio de entrada pós-chave (linha 15) no ST310.
+
+4. Ignição Física (340):
+- Template: ST300EVT;SERIAL;02;0;10;0;12;13;9;30;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+- Descrição: Configura detecção física de ignição via fio pós-chave no modelo ST340.
+
+5. Ignição por Deslocamento (ST310U):
+- Template: ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+- Descrição: Ativa a ignição virtual quando o GPS do ST310U detectar deslocamento/movimento do veículo.
+
+6. Ignição por Deslocamento (ST340UR):
+- Template: ST300EVT;SERIAL;02;3;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+- Descrição: Ativa ignição virtual por movimentação/deslocamento no modelo estanque ST340UR.
+
+7. Alterar Beep de Velocidade (ST340):
+- Template: ST300SVC;SERIAL;02;1;VELOCIDADE;0;0;0;1;1;0;1;0;0;0;1;1
+- Descrição: Altera a velocidade de corte/aviso sonoro do buzzer no ST340. Substitua VELOCIDADE pelo limite numérico em km/h (ex: 80, 100, 110) e SERIAL pelo serial do rastreador.
+
+8. Buzzer Enable 1:
+- Template: ST300CMD;SERIAL;02;Enable1
+- Descrição: Aciona e liga a Saída 1 do ST310/ST340, ativando imediatamente o buzzer ou sirene conectada.
+
+9. Buzzer Disable 1:
+- Template: ST300CMD;SERIAL;02;Disable1
+- Descrição: Desativa e desliga a Saída 1 do ST310/ST340, silenciando o buzzer sonoro.
+
+10. Buzzer ST310U:
+- Template: ST300SVC;SERIAL;02;1;110;0;0;0;0;0;1;0;0;0;0
+- Descrição: Configura os parâmetros e limites padrão de operação do buzzer no ST310U (limite de 110 km/h).
+
+11. Buzzer ST340:
+- Template: ST300SVC;SERIAL;02;1;120;0;0;0;1;1;0;1;0;0;0;1;1
+- Descrição: Configura os parâmetros e limites do buzzer no ST340 (limite de 120 km/h).
+
+12. Habilitar Deep Sleep:
+- Template: ST300SVC;SERIAL;02;0;200;1;0;0;0;1;0;1;0;0;0;1;1
+- Descrição: Habilita o modo de economia profunda (Deep Sleep) no ST310 / ST340 para reduzir o consumo de bateria do veículo enquanto desligado.
+
+13. Desabilitar Deep Sleep / Qualquer Sleep:
+- Template: ST300SVC;SERIAL;02;0;200;0;0;0;0;0;1;0;1;0;0;0;1
+- Descrição: Desativa qualquer modo sleep no ST310 / ST340, forçando o equipamento a operar em regime contínuo 100% acordado.
+"""
+    },
+    {
+        "id": "st8310_st8300_st4315_st4305_comandos_prg",
+        "device_family": "ST8310 / ST8300 / ST4315 / ST4305",
+        "topic": "comandos",
+        "title": "Comandos PRG de Configuração 4G - ST8310, ST8300, ST4315 e ST4305",
+        "keywords": [
+            "st8310", "st8300", "st4315", "st4305", "prg", "ignicao acelerometro", "ignicao tensao",
+            "ignicao fisica", "pos chave", "beep velocidade 4g", "buzzer habilitar", "buzzer desabilitar",
+            "sleep desabilitado", "sleep profundo", "sleep baixo consumo", "driving behavior"
+        ],
+        "pages": "Tabela de Comandos PRG Linha 4G Suntech",
+        "summary": "Templates de comandos no formato PRG para a linha 4G Suntech (ignição por acelerômetro/tensão/física, buzzer, sleep e driving behavior).",
+        "content": """
+Tabela de Comandos PRG (Linha 4G Suntech - ST8310 / ST8300 / ST4315 / ST4305):
+
+1. Ignição Virtual por Acelerômetro:
+- Template: PRG;SERIAL;17;00#03
+- Descrição: Configura a ignição virtual através do sensor de movimento/acelerômetro interno (G-sensor).
+
+2. Ignição Virtual por Tensão:
+- Template: PRG;SERIAL;17;00#02
+- Descrição: Configura a ignição virtual monitorando o aumento da voltagem da bateria do veículo.
+
+3. Ignição Física (Pós Chave):
+- Template: PRG;SERIAL;17;00#01
+- Descrição: Configura a detecção convencional de ignição pelo Fio Azul conectado ao pós-chave (linha 15).
+
+4. Alterar Beep de Velocidade (4G):
+- Template: PRG;SERIAL;16;21#VELOCIDADE
+- Descrição: Define a velocidade de disparo do alerta sonoro nos rastreadores 4G. Substitua VELOCIDADE pelo valor em km/h (ex: 80, 100, 120) e SERIAL pelo serial do aparelho.
+
+5. Buzzer Habilitar:
+- Template: PRG;SERIAL;10;64#01
+- Descrição: Habilita a função do buzzer sonoro na saída configurada.
+
+6. Buzzer Desabilitar:
+- Template: PRG;SERIAL;10;64#00
+- Descrição: Desabilita o buzzer sonoro do rastreador.
+
+7. Modo Sleep Desabilitado (Consumo normal):
+- Template: PRG;SERIAL;19;30#00
+- Descrição: Desativa o modo econômico de repouso. O equipamento opera com consumo padrão o tempo todo.
+
+8. Sleep Profundo / Ultra-baixo consumo:
+- Template: PRG;SERIAL;19;30#01
+- Descrição: Ativa o modo Deep Sleep (consumo ultrabaixo <3mA) desligando módulos não essenciais com a ignição desligada.
+
+9. Sleep Baixo consumo (GPRS Mantido):
+- Template: PRG;SERIAL;19;30#02
+- Descrição: Ativa o modo sleep econômico mantendo o modem GPRS/LTE conectado na rede celular para recepção instantânea de comandos.
+
+10. Driving Behavior (Habilitar Função):
+- Template: PRG;SERIAL;19;10#01
+- Descrição: Habilita a função de telemetria de condução (Driving Behavior / Eco-Driving).
+
+11. Driving Behavior Completo:
+- Template: PRG;SERIAL;19;10#01;12#40.0;13#45.0;14#60.0;21#20.0;22#20.0;23#20.0
+- Descrição: Configura telemetria detalhada de condução agressiva:
+  * 12#40.0: Limiar de aceleração brusca
+  * 13#45.0: Limiar de frenagem brusca
+  * 14#60.0: Limiar de curva brusca
+  * 21#20.0, 22#20.0, 23#20.0: Limiares complementares de impactos e choques
+"""
+    },
+    {
+        "id": "queclink_gv50_comandos_bloqueio",
+        "device_family": "Queclink GV50CG",
+        "topic": "comandos",
+        "title": "Comandos de Bloqueio e Desbloqueio - Queclink GV50 4G (GV50CG)",
+        "keywords": [
+            "gv50 4g", "gv50cg", "queclink", "bloquear veiculo", "desbloquear veiculo",
+            "at+gtdos", "bloqueio gv50", "desbloqueio gv50", "ignicao ligada", "rele"
+        ],
+        "pages": "Tabela de Comandos de Operação Queclink GV50 4G",
+        "summary": "Comandos AT+GTDOS de bloqueio e desbloqueio para o Queclink GV50 4G com aviso obrigatório de ignição ligada.",
+        "content": """
+Comandos de Bloqueio e Desbloqueio - Queclink GV50 4G (GV50CG):
+
+1. Bloquear Veículo:
+- Template: AT+GTDOS=gv50cg,0,1,1,1,0,0,,,0,0,5,,,,FFFF$
+- ⚠️ AVISO OBRIGATÓRIO: EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!
+- Descrição: Envia o comando de bloqueio via protocolo @Tracker para acionar a saída digital (Pino 4 - Fio Marrom / OUT) conectada à bobina do relé automotivo de corte.
+
+2. Desbloquear Veículo:
+- Template: AT+GTDOS=gv50cg,0,1,1,0,0,0,,,0,0,5,,,,FFFF$
+- ⚠️ AVISO OBRIGATÓRIO: EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!
+- Descrição: Envia o comando de desbloqueio desativando a saída digital e restabelecendo o circuito da bomba de combustível ou ignição.
+
+Regra Importante de Execução:
+Para que o Queclink GV50 4G processe e execute com sucesso o comando de bloqueio ou desbloqueio, o veículo e o equipamento DEVEM estar com a ignição ligada.
+"""
+    },
+    {
+        "id": "identificador_motorista_rfid_comandos",
+        "device_family": "Identificador de Motorista",
+        "topic": "comandos",
+        "title": "Comandos para Identificador de Motorista (RFID GET, SGBRAS e Teclado)",
+        "keywords": [
+            "identificador de motorista", "rfid", "sgbras", "teclado", "matricula", "getscale",
+            "timeout", "st300dex", "dex", "gtsl", "sgbt", "passageiro", "leitor de cartao"
+        ],
+        "pages": "Tabela de Comandos de Periféricos e Acessórios",
+        "summary": "Templates de comandos DEX e ST300DEX para configuração de RFID GET, SGBRAS 09.2/04.8, teclado de matrícula e timeout GetScale.",
+        "content": """
+Tabela de Comandos para Identificador de Motorista (RFID / Teclado / Periféricos):
+
+1. RFID GET - 1. IDENTIFICAÇÃO DE MOTORISTA/PASSAGEIRO (RFID - GET):
+- Template: ST300DEX;02;6;718|1|;C9
+- Descrição: Configura a identificação de motorista/passageiro via leitor RFID GET no protocolo ST300DEX.
+
+2. RFID GET - IDENTIFICAÇÃO DE MOTORISTA/PASSAGEIRO (RFID - SGBRAS):
+- Template: ST300DEX;SERIAL;02;19;GTSL|7|1|2|719|0|1|;3
+- Descrição: Configura a identificação de motorista/passageiro para leitores RFID SGBRAS. Substitua SERIAL pelo serial do rastreador.
+
+3. RFID GET (DEX 0009):
+- Template: DEX;SERIAL;0009;718|1|;C9;80
+- Descrição: Comando DEX padrão de comunicação para leitor RFID GET com o serial do rastreador.
+
+4. RFID SGBRAS (09.2):
+- Template: ST300DEX;SERIAL;02;10;SGBT|09.2|;F1
+- Descrição: Configura e calibra o leitor RFID SGBRAS versão de firmware 09.2.
+
+5. RFID SGBRAS (04.8):
+- Template: ST300DEX;SERIAL;02;10;SGBT|04.8|;F2
+- Descrição: Configura o leitor RFID SGBRAS versão de firmware 04.8.
+
+6. TECLADO SGBRAS (Ativar RFID):
+- Template: DEX;SERIAL;0008;SGBT|18|;91
+- Descrição: Habilita o leitor de cartões RFID embutido no teclado SGBRAS.
+
+7. TECLADO SGBRAS (Ativar Matrícula):
+- Template: DEX;SERIAL;0008;SGBT|17|;90
+- Descrição: Habilita a digitação manual de matrícula/código do motorista através do teclado numérico SGBRAS.
+
+8. Timeout ID GetScale:
+- Template: DEX;SERIAL;0006;709|0|;C8
+- Descrição: Configura o tempo de espera (timeout) para leitura de identificação do sistema GetScale.
+"""
+    },
+    {
+        "id": "tabela_geral_comandos_equipamentos",
+        "device_family": "Geral / Todos os Modelos",
+        "topic": "comandos",
+        "title": "Tabela Completa de Comandos por Modelo de Equipamento",
+        "keywords": [
+            "tabela de comandos", "todos os comandos", "lista de comandos", "comandos de configuracao",
+            "comandos por modelo", "st310", "st340", "st8300", "st4305", "st8310", "gv50 4g", "rfid"
+        ],
+        "pages": "Tabela Operacional Centralizada de Comandos",
+        "summary": "Compilação de todos os comandos organizados por modelo: Suntech ST310/ST340, Suntech 4G PRG, Queclink GV50 4G e Identificadores de Motorista.",
+        "content": """
+Tabela Geral de Comandos por Equipamento:
+
+--- LINHA ST310 / ST340 ---
+• Ignição Virtual por Tensão (310): ST300EVT;SERIAL;02;2;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+• Ignição Virtual por Tensão (340): ST300EVT;SERIAL;02;2;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+• Ignição Física (310): ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+• Ignição Física (340): ST300EVT;SERIAL;02;0;10;0;12;13;9;30;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+• Ignição por Deslocamento (ST310U): ST300EVT;SERIAL;02;3;10;0;2;13;9;2;20;0;5;7;1;1;0;0;0;0;0;0;9;9;0;0;0
+• Ignição por Deslocamento (ST340UR): ST300EVT;SERIAL;02;3;10;0;2;20;9;20;20;0;5;7;1;0;0;0;0;0;0;0;9;9;0;0;3
+• Alterar Beep de Velocidade (ST340): ST300SVC;SERIAL;02;1;VELOCIDADE;0;0;0;1;1;0;1;0;0;0;1;1
+• Buzzer Enable 1: ST300CMD;SERIAL;02;Enable1
+• Buzzer Disable 1: ST300CMD;SERIAL;02;Disable1
+• Buzzer ST310U: ST300SVC;SERIAL;02;1;110;0;0;0;0;0;1;0;0;0;0
+• Buzzer ST340: ST300SVC;SERIAL;02;1;120;0;0;0;1;1;0;1;0;0;0;1;1
+• Habilitar Deep Sleep: ST300SVC;SERIAL;02;0;200;1;0;0;0;1;0;1;0;0;0;1;1
+• Desabilitar Deep Sleep / Qualquer Sleep: ST300SVC;SERIAL;02;0;200;0;0;0;0;0;1;0;1;0;0;0;1
+
+--- LINHA ST8310 / ST8300 / ST4315 / ST4305 (4G PRG) ---
+• Ignição Virtual por Acelerômetro: PRG;SERIAL;17;00#03
+• Ignição Virtual por Tensão: PRG;SERIAL;17;00#02
+• Ignição Física (Pós Chave): PRG;SERIAL;17;00#01
+• Alterar Beep de Velocidade (4G): PRG;SERIAL;16;21#VELOCIDADE
+• Buzzer Habilitar: PRG;SERIAL;10;64#01
+• Buzzer Desabilitar: PRG;SERIAL;10;64#00
+• Modo Sleep Desabilitado (Consumo normal): PRG;SERIAL;19;30#00
+• Sleep Profundo / Ultra-baixo consumo: PRG;SERIAL;19;30#01
+• Sleep Baixo consumo (GPRS Mantido): PRG;SERIAL;19;30#02
+• Driving Behavior (Habilitar Função): PRG;SERIAL;19;10#01
+• Driving Behavior Completo: PRG;SERIAL;19;10#01;12#40.0;13#45.0;14#60.0;21#20.0;22#20.0;23#20.0
+
+--- QUECLINK GV50 4G (GV50CG) ---
+• Bloquear Veículo: AT+GTDOS=gv50cg,0,1,1,1,0,0,,,0,0,5,,,,FFFF$
+  [AVISO: EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!]
+• Desbloquear Veículo: AT+GTDOS=gv50cg,0,1,1,0,0,0,,,0,0,5,,,,FFFF$
+  [AVISO: EQUIPAMENTO DEVE ESTAR COM A IGNIÇÃO LIGADA!]
+
+--- IDENTIFICADOR DE MOTORISTA (RFID / TECLADO) ---
+• RFID GET - 1. IDENTIFICAÇÃO DE MOTORISTA/PASSAGEIRO (RFID - GET): ST300DEX;02;6;718|1|;C9
+• RFID GET - IDENTIFICAÇÃO DE MOTORISTA/PASSAGEIRO (RFID - SGBRAS): ST300DEX;SERIAL;02;19;GTSL|7|1|2|719|0|1|;3
+• RFID GET (DEX 0009): DEX;SERIAL;0009;718|1|;C9;80
+• RFID SGBRAS (09.2): ST300DEX;SERIAL;02;10;SGBT|09.2|;F1
+• RFID SGBRAS (04.8): ST300DEX;SERIAL;02;10;SGBT|04.8|;F2
+• TECLADO SGBRAS (Ativar RFID): DEX;SERIAL;0008;SGBT|18|;91
+• TECLADO SGBRAS (Ativar Matrícula): DEX;SERIAL;0008;SGBT|17|;90
+• Timeout ID GetScale: DEX;SERIAL;0006;709|0|;C8
+"""
+    }
 ]
 
 
@@ -1002,6 +1272,28 @@ TECHNICAL_TERMS_MAP = {
     "comparar": "diferencas_modelos",
     "comando": "comandos",
     "comandos": "comandos",
+    "template": "comandos",
+    "templates": "comandos",
+    "st300evt": "comandos",
+    "st300svc": "comandos",
+    "st300cmd": "comandos",
+    "st300dex": "comandos",
+    "prg": "comandos",
+    "at+gtdos": "comandos",
+    "gtdos": "comandos",
+    "rfid": "comandos",
+    "sgbras": "comandos",
+    "teclado sgbras": "comandos",
+    "getscale": "comandos",
+    "matricula": "comandos",
+    "beep": "comandos",
+    "buzzer": "comandos",
+    "deep sleep": "comandos",
+    "driving behavior": "comandos",
+    "bloquear veiculo": "comandos",
+    "desbloquear veiculo": "comandos",
+    "ignicao virtual": "comandos",
+    "ignicao fisica": "comandos",
     "rs232": "comandos_rs232",
     "ibutton": "especificacoes",
     "1-wire": "especificacoes",
