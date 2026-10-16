@@ -2,7 +2,11 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+    <meta name="theme-color" content="#0F172A">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>{{ app_name }}</title>
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,6 +21,9 @@
 </head>
 <body>
     <div class="app-layout">
+        <!-- Backdrop escurecido para fechar sidebar no mobile -->
+        <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
         <!-- Sidebar de Navegação -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -24,6 +31,9 @@
                     <img src="/static/images/webrota-logo-darkbg.png" alt="WebRota" height="32" class="brand-title-logo">
                     <span>Central de Suporte</span>
                 </div>
+                <button type="button" class="sidebar-close-btn" id="sidebar-close" aria-label="Fechar menu">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
 
             <nav class="sidebar-nav">
@@ -71,11 +81,25 @@
         <main class="main-content">
             <!-- Topbar Mobile & Global Info -->
             <header class="topbar">
-                <button class="mobile-toggle" id="mobile-toggle">
-                    <i class="fa-solid fa-bars"></i>
-                </button>
-                <div class="topbar-title">
-                    <h1 id="page-title">Bem-vindo à Central de Suporte</h1>
+                <div class="topbar-left">
+                    <button type="button" class="mobile-toggle" id="mobile-toggle" aria-label="Abrir menu lateral">
+                        <i class="fa-solid fa-bars"></i>
+                    </button>
+                    <div class="topbar-brand-mobile">
+                        <img src="/static/images/webrota-logo-darkbg.png" alt="WebRota" height="26">
+                    </div>
+                    <div class="topbar-title">
+                        <h1 id="page-title">Bem-vindo à Central de Suporte</h1>
+                    </div>
+                </div>
+                <div class="topbar-right">
+                    <div class="topbar-user-badge" title="{{ usuario.nome }} ({{ usuario.perfil }})">
+                        <i class="fa-solid fa-user-circle"></i>
+                        <span class="topbar-user-name">{{ usuario.nome.split()[0] }}</span>
+                    </div>
+                    <a href="/logout" class="topbar-btn-logout" title="Sair do sistema">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                    </a>
                 </div>
             </header>
 
@@ -336,20 +360,17 @@
                 <!-- TAB 0: CHAT IA - MANUAIS DOS APARELHOS -->
                 <section class="tab-pane{% if aba_inicial == 'tab-chat' %} active{% endif %}" id="tab-chat">
                     <div class="chat-wrapper">
-                        <!-- Topo do Chat com Filtro de Aparelho e Status da Rede Neural -->
+                        <!-- Topo do Chat Ultra-Clean -->
                         <div class="chat-header-panel">
                             <div class="chat-title-group">
                                 <div class="chat-icon-badge">
                                     <i class="fa-solid fa-brain"></i>
                                 </div>
-                                <div>
-                                    <div class="chat-title-row">
-                                        <h3>Assistente Técnico IA</h3>
-                                        <span class="neural-badge-live">
-                                            <span class="pulse-dot"></span> Rede Neural Ativa
-                                        </span>
-                                    </div>
-                                    <p class="chat-subtitle">Compreensão semântica em linguagem natural e ordem livre sobre rastreadores Suntech e Queclink.</p>
+                                <div class="chat-title-row">
+                                    <h3>Assistente Técnico IA</h3>
+                                    <span class="neural-badge-live">
+                                        <span class="pulse-dot"></span> Rede Neural Ativa
+                                    </span>
                                 </div>
                             </div>
                             <div class="chat-controls-group">
@@ -360,53 +381,10 @@
                             </div>
                         </div>
 
-                        <!-- Barra de Seleção Rápida de Aparelho (Pills Interativos) -->
-                        <div class="chat-device-bar">
-                            <span class="device-bar-label"><i class="fa-solid fa-satellite-dish"></i> Aparelho:</span>
-                            <div class="device-pill-list" id="device-pill-list">
-                                <button type="button" class="device-pill-btn active" data-device="">
-                                    <i class="fa-solid fa-layer-group"></i> Todos (Auto-Detectar)
-                                </button>
-                                <button type="button" class="device-pill-btn" data-device="Queclink GV50CG">
-                                    <i class="fa-solid fa-microchip"></i> Queclink GV50CG
-                                </button>
-                                <button type="button" class="device-pill-btn" data-device="ST4305">
-                                    <i class="fa-solid fa-satellite-dish"></i> ST4305 / ST8300
-                                </button>
-                                <button type="button" class="device-pill-btn" data-device="ST340UR">
-                                    <i class="fa-solid fa-shield-halved"></i> ST340UR (IP67)
-                                </button>
-                                <button type="button" class="device-pill-btn" data-device="Linha ST310">
-                                    <i class="fa-solid fa-box-archive"></i> Linha ST310
-                                </button>
-                                <button type="button" class="device-pill-btn" data-device="ST8310UM">
-                                    <i class="fa-solid fa-tower-broadcast"></i> ST8310UM (4G)
-                                </button>
-                            </div>
-                            <input type="hidden" id="chat-filtro-aparelho" value="">
-                        </div>
+                        <!-- Filtro de Aparelho Oculto (Detecção Automática pela Pergunta) -->
+                        <input type="hidden" id="chat-filtro-aparelho" value="">
 
-                        <!-- Categorias de Dúvidas Prontas -->
-                        <div class="chat-categories-bar">
-                            <div class="category-tabs-row" id="prompt-category-tabs">
-                                <button type="button" class="cat-tab-btn active" data-cat="frequentes"><i class="fa-solid fa-star"></i> Mais Frequentes</button>
-                                <button type="button" class="cat-tab-btn" data-cat="gv50cg"><i class="fa-solid fa-microchip"></i> Queclink GV50CG</button>
-                                <button type="button" class="cat-tab-btn" data-cat="fios"><i class="fa-solid fa-plug"></i> Fios &amp; Chicotes</button>
-                                <button type="button" class="cat-tab-btn" data-cat="dpa"><i class="fa-solid fa-gauge"></i> Calibração DPA</button>
-                                <button type="button" class="cat-tab-btn" data-cat="rele"><i class="fa-solid fa-power-off"></i> Relé 5 Pinos &amp; Bloqueio</button>
-                                <button type="button" class="cat-tab-btn" data-cat="leds"><i class="fa-solid fa-lightbulb"></i> Diagnóstico de LEDs</button>
-                                <button type="button" class="cat-tab-btn" data-cat="synctrak"><i class="fa-solid fa-gear"></i> Synctrak &amp; Senhas</button>
-                            </div>
-                        </div>
-
-                        <!-- Chips de Dúvidas Dinâmicos por Categoria -->
-                        <div class="chat-suggestions-bar">
-                            <div class="suggestions-chips-scroll" id="chat-suggestions-chips">
-                                <!-- Preenchido dinamicamente via JS com base na categoria selecionada -->
-                            </div>
-                        </div>
-
-                        <!-- Área de Mensagens -->
+                        <!-- Área Principal de Mensagens e Respostas (Ocupa Máximo Espaço) -->
                         <div class="chat-messages-container-wrapper">
                             <div class="chat-messages" id="chat-messages-container">
                                 <div class="chat-bubble bot-bubble">
@@ -416,18 +394,11 @@
                                     <div class="bubble-content">
                                         <div class="bubble-header">
                                             <strong>Assistente Técnico IA</strong>
-                                            <span class="meta-tag">Rede Neural Invariante à Ordem</span>
+                                            <span class="meta-tag">Rede Neural Oficial</span>
                                         </div>
                                         <div class="bubble-text">
-                                            <p>Olá! Sou o assistente especialista em instalação e configuração de rastreadores <strong>Suntech e Queclink</strong>. Fui treinado diretamente nos manuais técnicos oficiais.</p>
-                                            <div class="direct-answer-card" style="margin: 10px 0;">
-                                                <i class="fa-solid fa-bolt" style="color: #F59E0B; font-size: 16px;"></i>
-                                                <div>
-                                                    <strong>Entendimento Semântico Direto e Preciso:</strong>
-                                                    <p style="margin: 2px 0 0 0; font-size: 13px;">Respondo de <strong>fato o que você perguntar</strong>, de forma personalizada e sem blocos gigantes de texto. Pode digitar em qualquer ordem (ex: <em>"gv50cg pos chave fio"</em>, <em>"rele diodo 1n4004 queclink"</em>, <em>"st340ur pos chave"</em>).</p>
-                                                </div>
-                                            </div>
-                                            <p style="margin-top: 8px;">Selecione um aparelho acima ou faça uma pergunta direta sobre cores de fios, esquemas com relé, calibração DPA ou LEDs!</p>
+                                            <p>Olá! Sou seu assistente técnico treinado nos manuais oficiais dos aparelhos <strong>Suntech e Queclink</strong>.</p>
+                                            <p style="margin-top: 6px;">Pergunte qualquer dúvida sobre cores de fios, chicotes, relés de bloqueio, calibração DPA, LEDs ou configurações de rastreadores.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -438,13 +409,13 @@
                             </button>
                         </div>
 
-                        <!-- Barra de Input e Envio -->
+                        <!-- Barra de Input e Envio Limpa -->
                         <div class="chat-input-bar">
                             <form id="chat-form" class="chat-form">
                                 <div class="input-wrapper">
                                     <textarea
                                         id="chat-input-text"
-                                        placeholder="Digite sua dúvida sobre o aparelho... (em qualquer ordem de palavras. Pressione Enter para enviar)"
+                                        placeholder="Digite sua dúvida sobre o aparelho... (Pressione Enter para enviar)"
                                         rows="1"
                                         required
                                     ></textarea>
@@ -453,10 +424,6 @@
                                     <i class="fa-solid fa-paper-plane"></i>
                                 </button>
                             </form>
-                            <div class="chat-footer-note">
-                                <span><i class="fa-solid fa-shield-halved"></i> Respostas estritamente fundamentadas nos manuais oficiais da Suntech do Brasil.</span>
-                                <span id="chat-latency-badge" class="chat-latency-indicator"><i class="fa-solid fa-bolt"></i> Inferência Neural Instantânea</span>
-                            </div>
                         </div>
                     </div>
                 </section>
@@ -464,6 +431,41 @@
             </div>
         </main>
     </div>
+
+    <!-- Barra de Navegação Inferior (Mobile Bottom Navigation) -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav" aria-label="Navegação móvel">
+        <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-home' %} active{% endif %}" data-tab="tab-home">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-house"></i>
+            </div>
+            <span>Início</span>
+        </button>
+        <button type="button" class="bottom-nav-item bottom-nav-ia{% if aba_inicial == 'tab-chat' %} active{% endif %}" data-tab="tab-chat">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-brain"></i>
+                <span class="bottom-nav-dot"></span>
+            </div>
+            <span>Chat IA</span>
+        </button>
+        <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-placa' %} active{% endif %}" data-tab="tab-placa">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-car-side"></i>
+            </div>
+            <span>Placas</span>
+        </button>
+        <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-map-location-dot"></i>
+            </div>
+            <span>Local OS</span>
+        </button>
+        <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-ranking' %} active{% endif %}" data-tab="tab-ranking">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <span>Rankings</span>
+        </button>
+    </nav>
 
     <!-- Toast Notifications -->
     <div id="toast-container" class="toast-container"></div>

@@ -22,12 +22,15 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // --------------------------------------------------------------------
-// NAVEGAÇÃO ENTRE ABAS
+// NAVEGAÇÃO ENTRE ABAS (DESKTOP & MOBILE BOTTOM BAR)
 // --------------------------------------------------------------------
 function initNavigation() {
     const navItems = document.querySelectorAll('.nav-item');
+    const bottomNavItems = document.querySelectorAll('.bottom-nav-item');
     const tabPanes = document.querySelectorAll('.tab-pane');
     const pageTitle = document.getElementById('page-title');
+    const sidebar = document.querySelector('.sidebar');
+    const backdrop = document.getElementById('sidebar-backdrop');
 
     const titulos = {
         'tab-home': 'Bem-vindo à Central de Suporte WebRota',
@@ -37,32 +40,78 @@ function initNavigation() {
         'tab-ranking': 'Rankings de Execução de Ordens de Serviço'
     };
 
+    function mudarAba(tabId) {
+        if (!tabId) return;
+
+        // Atualiza estado ativo nos botões da sidebar e bottom nav
+        navItems.forEach(n => {
+            if (n.getAttribute('data-tab') === tabId) {
+                n.classList.add('active');
+            } else {
+                n.classList.remove('active');
+            }
+        });
+
+        bottomNavItems.forEach(b => {
+            if (b.getAttribute('data-tab') === tabId) {
+                b.classList.add('active');
+            } else {
+                b.classList.remove('active');
+            }
+        });
+
+        // Alterna os painéis de abas
+        tabPanes.forEach(t => {
+            if (t.id === tabId) {
+                t.classList.add('active');
+            } else {
+                t.classList.remove('active');
+            }
+        });
+
+        // Atualiza título da topbar
+        if (titulos[tabId] && pageTitle) {
+            pageTitle.textContent = titulos[tabId];
+        }
+
+        // Carrega dados automáticos ao entrar na aba de Rankings
+        if (tabId === 'tab-ranking') {
+            carregarRankingDiario();
+            carregarRankingMensal();
+        }
+
+        // Se for no Chat IA e estiver no mobile, foca de forma confortável
+        if (tabId === 'tab-chat') {
+            const container = document.getElementById('chat-messages-container');
+            if (container) {
+                setTimeout(() => {
+                    container.scrollTop = container.scrollHeight;
+                }, 100);
+            }
+        }
+
+        // Fecha menu lateral e backdrop no mobile
+        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.classList.remove('sidebar-locked');
+
+        // Scroll suave para o topo
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Eventos na Sidebar
     navItems.forEach(item => {
         item.addEventListener('click', () => {
             const tabId = item.getAttribute('data-tab');
+            mudarAba(tabId);
+        });
+    });
 
-            navItems.forEach(n => n.classList.remove('active'));
-            tabPanes.forEach(t => t.classList.remove('active'));
-
-            item.classList.add('active');
-            const targetPane = document.getElementById(tabId);
-            if (targetPane) {
-                targetPane.classList.add('active');
-            }
-
-            if (titulos[tabId] && pageTitle) {
-                pageTitle.textContent = titulos[tabId];
-            }
-
-            // Carrega dados automáticos ao entrar na aba de Rankings
-            if (tabId === 'tab-ranking') {
-                carregarRankingDiario();
-                carregarRankingMensal();
-            }
-
-            // Fecha menu no mobile após clique
-            const sidebar = document.querySelector('.sidebar');
-            if (sidebar) sidebar.classList.remove('mobile-open');
+    // Eventos na Bottom Navigation Bar (Mobile)
+    bottomNavItems.forEach(item => {
+        item.addEventListener('click', () => {
+            const tabId = item.getAttribute('data-tab');
+            mudarAba(tabId);
         });
     });
 
@@ -70,21 +119,58 @@ function initNavigation() {
     document.querySelectorAll('.welcome-action-card').forEach(card => {
         card.addEventListener('click', () => {
             const gotoTab = card.getAttribute('data-goto');
-            const navBtn = document.querySelector(`.nav-item[data-tab="${gotoTab}"]`);
-            if (navBtn) navBtn.click();
+            mudarAba(gotoTab);
         });
     });
-
 }
 
 function initMobileMenu() {
     const toggle = document.getElementById('mobile-toggle');
+    const closeBtn = document.getElementById('sidebar-close');
+    const backdrop = document.getElementById('sidebar-backdrop');
     const sidebar = document.querySelector('.sidebar');
-    if (toggle && sidebar) {
-        toggle.addEventListener('click', () => {
-            sidebar.classList.toggle('mobile-open');
+
+    function abrirSidebar() {
+        if (sidebar) sidebar.classList.add('mobile-open');
+        if (backdrop) backdrop.classList.add('active');
+    }
+
+    function fecharSidebar() {
+        if (sidebar) sidebar.classList.remove('mobile-open');
+        if (backdrop) backdrop.classList.remove('active');
+        document.body.classList.remove('sidebar-locked');
+    }
+
+    if (toggle) {
+        toggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                fecharSidebar();
+            } else {
+                abrirSidebar();
+            }
         });
     }
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            fecharSidebar();
+        });
+    }
+
+    if (backdrop) {
+        backdrop.addEventListener('click', () => {
+            fecharSidebar();
+        });
+    }
+
+    // Fecha ao pressionar Escape
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            fecharSidebar();
+        }
+    });
 }
 
 // --------------------------------------------------------------------
@@ -160,6 +246,11 @@ async function consultarAcheCarStream() {
         if (progressPct) progressPct.textContent = '0%';
         if (progressText) progressText.textContent = 'Iniciando consulta suave e segura...';
     }
+
+    // Scroll suave para os resultados no mobile
+    setTimeout(() => {
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 150);
 
     try {
         const url = `/api/consulta/placa/stream?placas=${encodeURIComponent(texto)}`;
@@ -314,6 +405,11 @@ async function consultarLocalInstalacaoStream() {
         if (progressPct) progressPct.textContent = '0%';
         if (progressText) progressText.textContent = 'Iniciando busca de locais...';
     }
+
+    // Scroll suave para os resultados no mobile
+    setTimeout(() => {
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 150);
 
     try {
         const response = await fetch('/api/consulta/local/stream', {
@@ -846,19 +942,11 @@ const INITIAL_WELCOME_HTML = `
         <div class="bubble-content">
             <div class="bubble-header">
                 <strong>Assistente Técnico IA</strong>
-                <span class="meta-tag">Rede Neural Multicamadas</span>
+                <span class="meta-tag">Rede Neural Oficial</span>
             </div>
             <div class="bubble-text">
-                <p>Olá! Sou a inteligência artificial treinada nos manuais técnicos oficiais dos aparelhos <strong>Suntech e Queclink</strong>. Você pode digitar sua dúvida em <strong>linguagem informal</strong> ou técnica, como se estivesse conversando com outro instalador.</p>
-                <p style="margin-top: 8px;">Consigo responder de forma direta e personalizada sobre:</p>
-                <ul style="margin: 8px 0 12px 20px; font-size: 13.5px; color: var(--text-secondary);">
-                    <li><strong>Cores e funções de fios</strong> (Suntech e Queclink GV50CG).</li>
-                    <li><strong>Esquemas de bloqueio com relé</strong> (incluindo diodo 1N4004 no GV50CG).</li>
-                    <li><strong>Procedimentos de calibração DPA</strong> (por ignição ou comando).</li>
-                    <li><strong>Diagnóstico de LEDs</strong> (Suntech GPS/GPRS e Queclink Celular/GNSS).</li>
-                    <li><strong>Posicionamento de antena</strong> (THIS SIDE TOWARDS SKY no GV50CG).</li>
-                    <li><strong>Diferenças técnicas, senhas do Synctrak e micro-SIM</strong>.</li>
-                </ul>
+                <p>Olá! Sou seu assistente técnico treinado nos manuais oficiais dos aparelhos <strong>Suntech e Queclink</strong>.</p>
+                <p style="margin-top: 6px;">Pergunte qualquer dúvida sobre cores de fios, chicotes, relés de bloqueio, calibração DPA, LEDs ou configurações de rastreadores.</p>
             </div>
         </div>
     </div>
@@ -936,45 +1024,11 @@ function initChatIA() {
     const chatMessages = document.getElementById('chat-messages-container');
     const btnLimpar = document.getElementById('btn-limpar-chat');
     const inputAparelhoHidden = document.getElementById('chat-filtro-aparelho');
-    const devicePills = document.querySelectorAll('.device-pill-btn');
-    const catTabs = document.querySelectorAll('.cat-tab-btn');
     const btnScrollBottom = document.getElementById('btn-scroll-bottom');
 
     if (!chatForm || !chatInput || !chatMessages) return;
 
-    // 1. Inicializa Chips da Categoria Ativa
-    renderizarChipsCategoria('frequentes');
-
-    // 2. Alternador de Categorias de Dúvidas Prontas
-    catTabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            catTabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const cat = tab.getAttribute('data-cat') || 'frequentes';
-            renderizarChipsCategoria(cat);
-        });
-    });
-
-    // 3. Seleção Rápida de Aparelho (Pills Interativos)
-    devicePills.forEach(pill => {
-        pill.addEventListener('click', () => {
-            devicePills.forEach(p => p.classList.remove('active'));
-            pill.classList.add('active');
-            const dev = pill.getAttribute('data-device') || '';
-            if (inputAparelhoHidden) inputAparelhoHidden.value = dev;
-
-            if (dev) {
-                chatInput.placeholder = `Digite sua dúvida sobre o ${dev}... (ordem livre de palavras)`;
-                showToast(`Filtro fixado em: ${dev}`, 'info');
-            } else {
-                chatInput.placeholder = `Digite sua dúvida sobre o aparelho... (em qualquer ordem de palavras)`;
-                showToast('Filtro de aparelho: Detecção Automática', 'info');
-            }
-            chatInput.focus();
-        });
-    });
-
-    // 4. Detecção de Scroll para Botão Flutuante 'Descer'
+    // 1. Detecção de Scroll para Botão Flutuante 'Descer'
     chatMessages.addEventListener('scroll', () => {
         if (!btnScrollBottom) return;
         const distFim = chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight;
