@@ -18,3 +18,7 @@ __pycache__/
 .vscode/
 .idea/
 
+# Cache local de dados
+data/
+*.json.cache
+

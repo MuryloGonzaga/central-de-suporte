@@ -326,22 +326,18 @@ async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optio
 
 @app.get("/api/ranking/diario")
 async def ranking_diario(
-    data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)"),
-    cs_session: Optional[str] = Cookie(default=None)
+    data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)")
 ):
-    """Ranking diário de ordens de serviço executadas na WebRota"""
-    token = obter_token_webrota(cs_session)
-    return await WebrotaService.ranking_diario(data_referencia=data, token=token)
+    """Ranking diário de ordens de serviço executadas na WebRota (autentica via .env / Vercel)"""
+    return await WebrotaService.ranking_diario(data_referencia=data)
 
 @app.get("/api/ranking/mensal")
 async def ranking_mensal(
     ano: Optional[int] = Query(None, description="Ano de referência"),
-    mes: Optional[int] = Query(None, description="Mês de referência (1-12)"),
-    cs_session: Optional[str] = Cookie(default=None)
+    mes: Optional[int] = Query(None, description="Mês de referência (1-12)")
 ):
-    """Ranking mensal comparativo entre os técnicos (Túlio x Kaio)"""
-    token = obter_token_webrota(cs_session)
-    return await WebrotaService.ranking_mensal(ano=ano, mes=mes, token=token)
+    """Ranking mensal comparativo entre os técnicos (autentica via .env / Vercel)"""
+    return await WebrotaService.ranking_mensal(ano=ano, mes=mes)
 
 # ------------------------------------------
 # 5. Guias Técnicos

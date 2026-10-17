@@ -12,6 +12,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (dataFiltro) {
         const hoje = new Date().toISOString().split('T')[0];
         dataFiltro.value = hoje;
+        dataFiltro.addEventListener('change', () => {
+            carregarRankingDiario();
+        });
     }
 
     // Se a rota acessada for /chat, ativa automaticamente a aba do chat
@@ -521,7 +524,8 @@ async function carregarRankingDiario() {
         dataLabel.textContent = data.data || '--';
 
         if (!data.ranking || data.ranking.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhuma Ordem de Serviço executada nesta data até o momento.</div>';
+            const msgVazio = data.mensagem_horario || 'Nenhuma Ordem de Serviço executada nesta data até o momento.';
+            container.innerHTML = `<div class="empty-state">${msgVazio}</div>`;
             return;
         }
 
@@ -591,7 +595,8 @@ async function carregarRankingMensal() {
         periodoLabel.textContent = data.periodo || '--';
 
         if (!data.ranking || data.ranking.length === 0) {
-            container.innerHTML = '<div class="empty-state">Nenhum dado registrado para o período.</div>';
+            const msgVazio = data.mensagem_horario || 'Nenhum dado registrado para o período.';
+            container.innerHTML = `<div class="empty-state">${msgVazio}</div>`;
             return;
         }
 

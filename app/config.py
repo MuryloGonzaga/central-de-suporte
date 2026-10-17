@@ -8,8 +8,13 @@ ENV_PATH = BASE_DIR / ".env"
 load_dotenv(dotenv_path=ENV_PATH)
 
 # Configurações do WebRota
-WEBROTA_USER = os.getenv("WEBROTA_USER", "")
-WEBROTA_PASS = os.getenv("WEBROTA_PASS", "")
+WEBROTA_USER = os.getenv("WEBROTA_USER", "").strip()
+WEBROTA_PASS = os.getenv("WEBROTA_PASS", os.getenv("WEBROTA_PASSWORD", "")).strip()
+
+# Credenciais exclusivas para Ranking de OS (compatível com .env e Vercel)
+# Se não for informado um usuário específico para ranking, utiliza o WEBROTA_USER padrão
+WEBROTA_RANKING_USER = (os.getenv("WEBROTA_RANKING_USER") or WEBROTA_USER).strip()
+WEBROTA_RANKING_PASS = (os.getenv("WEBROTA_RANKING_PASS") or os.getenv("WEBROTA_RANKING_PASSWORD") or WEBROTA_PASS).strip()
 
 # Configurações do Servidor Web
 APP_HOST = os.getenv("APP_HOST", "0.0.0.0")

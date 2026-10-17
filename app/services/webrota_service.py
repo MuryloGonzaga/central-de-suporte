@@ -3,7 +3,8 @@ import re
 import datetime
 from typing import List, Dict, Any, Optional, AsyncGenerator
 import aiohttp
-from app.config import WEBROTA_USER, WEBROTA_PASS
+from app.config import WEBROTA_USER, WEBROTA_PASS, WEBROTA_RANKING_USER, WEBROTA_RANKING_PASS
+from app.services.ranking_cache import RankingCacheManager
 
 class WebrotaService:
     BASE_URL = "https://api.webrota.com.br"
@@ -11,16 +12,69 @@ class WebrotaService:
     _token_time: Optional[datetime.datetime] = None
     _lock = asyncio.Lock()
 
-    # Cache de Rankings com regra rígida: 08:00 às 18:00, 1 em 1 hora, sem recarga manual
-    _cache_ranking_diario: Dict[str, Any] = {}
-    _cache_ranking_mensal: Dict[str, Any] = {}
+    # Credenciais e Token ISOLADOS para o Ranking de OS (usa usuário do .env / Vercel)
+    _ranking_token: Optional[str] = None
+    _ranking_token_time: Optional[datetime.datetime] = None
+    _ranking_auth_lock = asyncio.Lock()
+    _ranking_query_lock = asyncio.Lock()
 
     @classmethod
     def set_token_ativo(cls, token: str):
-        """Define o token ativo autenticado pelo usuário logado."""
+        """Define o token ativo autenticado pelo usuário logado (usado apenas em consultas de usuário)."""
         if token:
             cls._token = token
             cls._token_time = datetime.datetime.now(datetime.timezone.utc)
+
+    @classmethod
+    async def obter_token_ranking(cls, forcar_renovacao: bool = False) -> Optional[str]:
+        """
+        Obtém ou renova o token JWT exclusivo para o Ranking de OS.
+        Utiliza ESTRITAMENTE as credenciais do .env ou variáveis do Vercel
+        (WEBROTA_RANKING_USER / WEBROTA_RANKING_PASS).
+        Não altera nem sofre interferência de logins de outros usuários.
+        """
+        async with cls._ranking_auth_lock:
+            agora = datetime.datetime.now(datetime.timezone.utc)
+            if (
+                not forcar_renovacao
+                and cls._ranking_token
+                and cls._ranking_token_time
+                and (agora - cls._ranking_token_time).total_seconds() < 14400
+            ):
+                return cls._ranking_token
+
+            usuario_ranking = WEBROTA_RANKING_USER
+            senha_ranking = WEBROTA_RANKING_PASS
+
+            if not usuario_ranking or not senha_ranking:
+                print("[Ranking WebRota] Aviso: WEBROTA_USER/WEBROTA_PASS não configurados no .env ou Vercel.")
+                return None
+
+            url_login = f"{cls.BASE_URL}/auth/login/"
+            payload = {"username": usuario_ranking, "password": senha_ranking}
+            headers = {"Content-Type": "application/json", "Accept": "application/json, text/plain, */*"}
+
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url_login, json=payload, headers=headers, timeout=aiohttp.ClientTimeout(total=20)) as resp:
+                        if resp.status in (200, 201):
+                            dados = await resp.json()
+                            token = (
+                                dados.get('token')
+                                or dados.get('access_token')
+                                or (dados.get('data') and isinstance(dados.get('data'), dict) and dados['data'].get('token'))
+                                or ""
+                            )
+                            if token:
+                                cls._ranking_token = token
+                                cls._ranking_token_time = agora
+                                return cls._ranking_token
+                        else:
+                            print(f"[Ranking WebRota] Falha de login para '{usuario_ranking}': HTTP {resp.status}")
+            except Exception as e:
+                print(f"[Ranking WebRota] Erro de conexão ao autenticar para ranking: {e}")
+
+            return cls._ranking_token
 
     @classmethod
     async def obter_token(cls, forcar_renovacao: bool = False, token_usuario: Optional[str] = None) -> Optional[str]:
@@ -402,19 +456,24 @@ class WebrotaService:
         }
 
     @classmethod
-    async def ranking_diario(cls, data_referencia: Optional[str] = None, token: Optional[str] = None) -> Dict[str, Any]:
+    async def ranking_diario(cls, data_referencia: Optional[str] = None) -> Dict[str, Any]:
         """
         Consulta o ranking de execuções de OS para uma data específica.
-        REGRAS RIGIDAS:
-        - Atualização permitida APENAS entre 08:00 e 18:00 (horário de Brasília).
-        - Atualizações ocorrem no máximo de 1 em 1 hora (cache horário).
-        - Fora do horário das 08:00 às 18:00, os dados permanecem estáticos (congelados).
+        REGRAS RÍGIDAS DE CACHE E HORÁRIO:
+        - Autenticação: Utiliza ESTRITAMENTE as credenciais do .env ou variáveis do Vercel
+          (WEBROTA_RANKING_USER / WEBROTA_RANKING_PASS). Não depende e não altera sessões de outros usuários.
+        - Horário operacional: Consultas externas à API permitidas APENAS entre 08:00 e 18:00 (horário de Brasília).
+        - Frequência: No máximo 1 consulta por hora. O resultado é salvo em cache de memória e persistido em arquivo JSON.
+        - Fora do horário (antes das 08h ou a partir das 18h): NUNCA dispara requisições para a API WebRota;
+          retorna o snapshot congelado do cache persistente.
         """
+        cache = RankingCacheManager.get_instance()
         tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
         agora_brt = datetime.datetime.now(tz_brt)
         hora_atual = agora_brt.hour
+        dia_hoje_iso = agora_brt.strftime("%Y-%m-%d")
 
-        janela_ativa = (8 <= hora_atual < 18)
+        janela_ativa = (8 <= hora_atual <= 18)
 
         if data_referencia:
             try:
@@ -425,33 +484,103 @@ class WebrotaService:
             data_dt = agora_brt
 
         dia_iso = data_dt.strftime("%Y-%m-%d")
-        cache_key = f"{dia_iso}_{hora_atual}"
+        eh_hoje = (dia_iso == dia_hoje_iso)
 
-        # 1. Se já calculou nesta hora, retorna o cache imediatamente
-        if cache_key in cls._cache_ranking_diario:
-            resp_cache = cls._cache_ranking_diario[cache_key].copy()
-            resp_cache["janela_ativa"] = janela_ativa
-            return resp_cache
+        # ------------------------------------------------------------------
+        # CASO 1: Consulta para DATA PASSADA (histórico fechado)
+        # ------------------------------------------------------------------
+        if not eh_hoje:
+            cache_key_fechado = f"{dia_iso}_fechado"
+            cached = cache.get_diario(cache_key_fechado)
+            if cached:
+                cached["janela_ativa"] = False
+                return cached
 
-        # 2. Se estiver fora da janela (antes das 08h ou a partir das 18h)
+            # Tenta encontrar qualquer snapshot já existente deste dia
+            snap = cache.obter_ultimo_snapshot_diario(dia_iso)
+            if snap and snap.get("data_iso") == dia_iso:
+                snap["janela_ativa"] = False
+                cache.set_diario(cache_key_fechado, snap)
+                return snap
+
+            # Se nunca foi consultado antes no histórico, busca uma única vez via API
+            token = await cls.obter_token_ranking()
+            if not token:
+                return {
+                    "sucesso": False,
+                    "erro": "Credenciais de ranking não configuradas no .env ou variáveis do Vercel (WEBROTA_USER / WEBROTA_PASS).",
+                    "janela_ativa": False
+                }
+            res_passado = await cls._executar_consulta_os_dia(data_dt, dia_iso, token, janela_ativa=False)
+            if res_passado.get("sucesso"):
+                cache.set_diario(cache_key_fechado, res_passado)
+            return res_passado
+
+        # ------------------------------------------------------------------
+        # CASO 2: Consulta para o DIA DE HOJE
+        # ------------------------------------------------------------------
+        cache_key_hora = f"{dia_iso}_{hora_atual}"
+
+        # 1. Se já temos snapshot desta hora em cache (persistente ou memória), retorna imediatamente
+        cached = cache.get_diario(cache_key_hora)
+        if cached:
+            cached["janela_ativa"] = janela_ativa
+            return cached
+
+        # 2. Se estiver FORA da janela operacional (antes das 08h ou a partir das 18h)
+        # NUNCA executa requisição na WebRota!
         if not janela_ativa:
-            # Busca o último snapshot do dia se existir
-            snapshots = [v for k, v in cls._cache_ranking_diario.items() if k.startswith(dia_iso)]
-            if snapshots:
-                ultimo = snapshots[-1].copy()
-                ultimo["janela_ativa"] = False
-                ultimo["mensagem_horario"] = "Ranking congelado fora do horário operacional. Atualizações automáticas ocorrem de 1 em 1 hora entre 08:00 e 18:00."
-                return ultimo
+            snap_hoje = cache.obter_ultimo_snapshot_diario(dia_iso)
+            if snap_hoje and snap_hoje.get("data_iso") == dia_iso:
+                snap_hoje["janela_ativa"] = False
+                snap_hoje["mensagem_horario"] = "Ranking congelado fora do horário operacional. Atualizações automáticas ocorrem de 1 em 1 hora entre 08:00 e 18:00."
+                return snap_hoje
 
-        # 3. Executa a requisição na API da WebRota
-        token = await cls.obter_token(token_usuario=token)
-        if not token:
+            # Se for antes das 08:00 da manhã e ainda não houver nenhum snapshot de hoje
             return {
-                "sucesso": False,
-                "erro": "Falha na autenticação da WebRota. Faça login com suas credenciais.",
-                "janela_ativa": janela_ativa
+                "sucesso": True,
+                "data": data_dt.strftime("%d/%m/%Y"),
+                "data_iso": dia_iso,
+                "total_os": 0,
+                "ranking": [],
+                "janela_ativa": False,
+                "mensagem_horario": "Ranking congelado fora do horário operacional. As consultas iniciam às 08:00.",
+                "proxima_atualizacao": "08:00 (Início do expediente)",
+                "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00"
             }
 
+        # 3. Está DENTRO da janela (08:00 às 18:00) e AINDA NÃO CONSULTADO NESTA HORA
+        # Utiliza lock para evitar concorrência caso múltiplos usuários acessem simultaneamente
+        async with cls._ranking_query_lock:
+            # Dupla checagem sob lock
+            cached = cache.get_diario(cache_key_hora)
+            if cached:
+                cached["janela_ativa"] = True
+                return cached
+
+            token = await cls.obter_token_ranking()
+            if not token:
+                return {
+                    "sucesso": False,
+                    "erro": "Credenciais de ranking não configuradas no .env ou variáveis do Vercel (WEBROTA_USER / WEBROTA_PASS).",
+                    "janela_ativa": True
+                }
+
+            resultado = await cls._executar_consulta_os_dia(data_dt, dia_iso, token, janela_ativa=True, hora_atual=hora_atual)
+            if resultado.get("sucesso"):
+                cache.set_diario(cache_key_hora, resultado)
+            return resultado
+
+    @classmethod
+    async def _executar_consulta_os_dia(
+        cls,
+        data_dt: datetime.datetime,
+        dia_iso: str,
+        token: str,
+        janela_ativa: bool,
+        hora_atual: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Rotina interna que consulta a API WebRota para ordens de serviço do dia."""
         amanha_dt = data_dt + datetime.timedelta(days=1)
         start_date = f"{data_dt.strftime('%Y-%m-%d')}T03:00:00.000Z"
         end_date = f"{amanha_dt.strftime('%Y-%m-%d')}T02:59:59.000Z"
@@ -493,10 +622,13 @@ class WebrotaService:
                                 "percentual": percentual
                             })
 
-                        proxima_hora_str = f"{(hora_atual + 1):02d}:00" if hora_atual < 17 else "08:00 (próximo ciclo)"
-                        ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {hora_atual:02d}:00")
+                        tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
+                        agora_brt = datetime.datetime.now(tz_brt)
+                        h = hora_atual if hora_atual is not None else agora_brt.hour
+                        proxima_hora_str = f"{(h + 1):02d}:00" if h < 18 else "08:00 (próximo ciclo)"
+                        ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {h:02d}:00")
 
-                        resultado = {
+                        return {
                             "sucesso": True,
                             "data": data_dt.strftime("%d/%m/%Y"),
                             "data_iso": dia_iso,
@@ -505,12 +637,8 @@ class WebrotaService:
                             "janela_ativa": janela_ativa,
                             "ultima_atualizacao": ultima_hora_str,
                             "proxima_atualizacao": proxima_hora_str,
-                            "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00 (sem forçar atualização)"
+                            "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00"
                         }
-
-                        # Armazena no cache da hora cheia
-                        cls._cache_ranking_diario[cache_key] = resultado
-                        return resultado
                     else:
                         return {
                             "sucesso": False,
@@ -529,43 +657,125 @@ class WebrotaService:
         cls,
         ano: Optional[int] = None,
         mes: Optional[int] = None,
-        tecnicos_custom: Optional[List[Dict[str, str]]] = None,
-        token: Optional[str] = None
+        tecnicos_custom: Optional[List[Dict[str, str]]] = None
     ) -> Dict[str, Any]:
         """
         Consulta o ranking de execuções do mês (comparativo Túlio x Kaio e geral).
-        REGRAS RÍGIDAS: Atualização de 1 em 1 hora entre 08:00 e 18:00.
+        REGRAS RÍGIDAS DE CACHE E HORÁRIO:
+        - Autenticação: Utiliza ESTRITAMENTE as credenciais do .env ou variáveis do Vercel
+          (WEBROTA_RANKING_USER / WEBROTA_RANKING_PASS). Não depende e não altera sessões de outros usuários.
+        - Horário operacional: Consultas externas à API permitidas APENAS entre 08:00 e 18:00 (horário de Brasília).
+        - Frequência: No máximo 1 consulta por hora. O resultado é salvo em cache de memória e persistido em arquivo JSON.
+        - Fora do horário (antes das 08h ou a partir das 18h): NUNCA dispara requisições para a API WebRota;
+          retorna o snapshot congelado do cache persistente.
         """
+        cache = RankingCacheManager.get_instance()
         tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
         agora_brt = datetime.datetime.now(tz_brt)
         hora_atual = agora_brt.hour
 
-        janela_ativa = (8 <= hora_atual < 18)
+        janela_ativa = (8 <= hora_atual <= 18)
 
         ano_sel = ano or agora_brt.year
         mes_sel = mes or agora_brt.month
-        cache_key = f"{ano_sel}_{mes_sel}_{hora_atual}"
+        eh_mes_atual = (ano_sel == agora_brt.year and mes_sel == agora_brt.month)
 
-        if cache_key in cls._cache_ranking_mensal:
-            resp_m = cls._cache_ranking_mensal[cache_key].copy()
-            resp_m["janela_ativa"] = janela_ativa
-            return resp_m
+        prefixo_mes = f"{ano_sel}_{mes_sel}"
 
+        # ------------------------------------------------------------------
+        # CASO 1: MÊS PASSADO (histórico fechado)
+        # ------------------------------------------------------------------
+        if not eh_mes_atual:
+            cache_key_fechado = f"{prefixo_mes}_fechado"
+            cached = cache.get_mensal(cache_key_fechado)
+            if cached:
+                cached["janela_ativa"] = False
+                return cached
+
+            snap_m = cache.obter_ultimo_snapshot_mensal(prefixo_mes)
+            if snap_m:
+                snap_m["janela_ativa"] = False
+                cache.set_mensal(cache_key_fechado, snap_m)
+                return snap_m
+
+            token = await cls.obter_token_ranking()
+            if not token:
+                return {
+                    "sucesso": False,
+                    "erro": "Credenciais de ranking não configuradas no .env ou variáveis do Vercel (WEBROTA_USER / WEBROTA_PASS).",
+                    "janela_ativa": False
+                }
+            res_m = await cls._executar_consulta_os_mensal(ano_sel, mes_sel, token, tecnicos_custom, janela_ativa=False)
+            if res_m.get("sucesso"):
+                cache.set_mensal(cache_key_fechado, res_m)
+            return res_m
+
+        # ------------------------------------------------------------------
+        # CASO 2: MÊS ATUAL
+        # ------------------------------------------------------------------
+        cache_key_hora = f"{prefixo_mes}_{hora_atual}"
+
+        # 1. Se já calculou nesta hora, retorna do cache imediatamente
+        cached = cache.get_mensal(cache_key_hora)
+        if cached:
+            cached["janela_ativa"] = janela_ativa
+            return cached
+
+        # 2. Se fora da janela operacional (antes das 08h ou a partir das 18h)
+        # NUNCA executa requisição na WebRota!
         if not janela_ativa:
-            snapshots = [v for k, v in cls._cache_ranking_mensal.items() if k.startswith(f"{ano_sel}_{mes_sel}")]
-            if snapshots:
-                ultimo_m = snapshots[-1].copy()
-                ultimo_m["janela_ativa"] = False
-                ultimo_m["mensagem_horario"] = "Ranking mensal congelado fora do horário operacional (08:00 às 18:00)."
-                return ultimo_m
+            snap_mes = cache.obter_ultimo_snapshot_mensal(prefixo_mes)
+            if snap_mes:
+                snap_mes["janela_ativa"] = False
+                snap_mes["mensagem_horario"] = "Ranking mensal congelado fora do horário operacional (08:00 às 18:00)."
+                return snap_mes
 
-        token = await cls.obter_token(token_usuario=token)
-        if not token:
             return {
-                "sucesso": False,
-                "erro": "Falha na autenticação da WebRota. Faça login com suas credenciais.",
-                "janela_ativa": janela_ativa
+                "sucesso": True,
+                "periodo": f"Mês {mes_sel}/{ano_sel}",
+                "mes": mes_sel,
+                "ano": ano_sel,
+                "total_comparativo": 0,
+                "ranking": [],
+                "janela_ativa": False,
+                "mensagem_horario": "Ranking mensal congelado fora do horário operacional (08:00 às 18:00).",
+                "proxima_atualizacao": "08:00 (Início do expediente)",
+                "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00"
             }
+
+        # 3. Está DENTRO da janela (08:00 às 18:00) e AINDA NÃO CONSULTADO NESTA HORA
+        async with cls._ranking_query_lock:
+            cached = cache.get_mensal(cache_key_hora)
+            if cached:
+                cached["janela_ativa"] = True
+                return cached
+
+            token = await cls.obter_token_ranking()
+            if not token:
+                return {
+                    "sucesso": False,
+                    "erro": "Credenciais de ranking não configuradas no .env ou variáveis do Vercel (WEBROTA_USER / WEBROTA_PASS).",
+                    "janela_ativa": True
+                }
+
+            resultado_m = await cls._executar_consulta_os_mensal(ano_sel, mes_sel, token, tecnicos_custom, janela_ativa=True, hora_atual=hora_atual)
+            if resultado_m.get("sucesso"):
+                cache.set_mensal(cache_key_hora, resultado_m)
+            return resultado_m
+
+    @classmethod
+    async def _executar_consulta_os_mensal(
+        cls,
+        ano_sel: int,
+        mes_sel: int,
+        token: str,
+        tecnicos_custom: Optional[List[Dict[str, str]]],
+        janela_ativa: bool,
+        hora_atual: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Rotina interna que consulta a API WebRota para o ranking mensal dos técnicos."""
+        tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
+        agora_brt = datetime.datetime.now(tz_brt)
 
         primeiro_dia = datetime.datetime(ano_sel, mes_sel, 1, tzinfo=tz_brt)
         if ano_sel == agora_brt.year and mes_sel == agora_brt.month:
@@ -620,7 +830,7 @@ class WebrotaService:
                         "nome": tec["nome_exibicao"],
                         "total": total_executado
                     })
-                    await asyncio.sleep(0.4)
+                    await asyncio.sleep(0.3)
 
             ranking_ordenado = sorted(ranking_resultados, key=lambda x: x["total"], reverse=True)
             total_geral = sum(r["total"] for r in ranking_ordenado)
@@ -635,10 +845,11 @@ class WebrotaService:
                     "percentual": pct
                 })
 
-            proxima_hora_str = f"{(hora_atual + 1):02d}:00" if hora_atual < 17 else "08:00 (próximo ciclo)"
-            ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {hora_atual:02d}:00")
+            h = hora_atual if hora_atual is not None else agora_brt.hour
+            proxima_hora_str = f"{(h + 1):02d}:00" if h < 18 else "08:00 (próximo ciclo)"
+            ultima_hora_str = agora_brt.strftime(f"%d/%m/%Y às {h:02d}:00")
 
-            resultado_m = {
+            return {
                 "sucesso": True,
                 "periodo": periodo_texto,
                 "mes": mes_sel,
@@ -650,9 +861,6 @@ class WebrotaService:
                 "proxima_atualizacao": proxima_hora_str,
                 "regra_atualizacao": "Atualização automática de 1 em 1 hora entre 08:00 e 18:00"
             }
-
-            cls._cache_ranking_mensal[cache_key] = resultado_m
-            return resultado_m
         except Exception as e:
             return {
                 "sucesso": False,
