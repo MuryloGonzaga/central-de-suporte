@@ -456,7 +456,7 @@ class WebrotaService:
         }
 
     @classmethod
-    async def ranking_diario(cls, data_referencia: Optional[str] = None) -> Dict[str, Any]:
+    async def ranking_diario(cls, data_referencia: Optional[str] = None, force: bool = False) -> Dict[str, Any]:
         """
         Consulta o ranking de execuções de OS para uma data específica.
         REGRAS RÍGIDAS DE CACHE E HORÁRIO:
@@ -522,10 +522,11 @@ class WebrotaService:
         cache_key_hora = f"{dia_iso}_{hora_atual}"
 
         # 1. Se já temos snapshot desta hora em cache (persistente ou memória), retorna imediatamente
-        cached = cache.get_diario(cache_key_hora)
-        if cached:
-            cached["janela_ativa"] = janela_ativa
-            return cached
+        if not force:
+            cached = cache.get_diario(cache_key_hora)
+            if cached:
+                cached["janela_ativa"] = janela_ativa
+                return cached
 
         # 2. Se estiver FORA da janela operacional (antes das 08h ou a partir das 18h)
         # NUNCA executa requisição na WebRota!
@@ -553,10 +554,11 @@ class WebrotaService:
         # Utiliza lock para evitar concorrência caso múltiplos usuários acessem simultaneamente
         async with cls._ranking_query_lock:
             # Dupla checagem sob lock
-            cached = cache.get_diario(cache_key_hora)
-            if cached:
-                cached["janela_ativa"] = True
-                return cached
+            if not force:
+                cached = cache.get_diario(cache_key_hora)
+                if cached:
+                    cached["janela_ativa"] = True
+                    return cached
 
             token = await cls.obter_token_ranking()
             if not token:
@@ -657,7 +659,8 @@ class WebrotaService:
         cls,
         ano: Optional[int] = None,
         mes: Optional[int] = None,
-        tecnicos_custom: Optional[List[Dict[str, str]]] = None
+        tecnicos_custom: Optional[List[Dict[str, str]]] = None,
+        force: bool = False
     ) -> Dict[str, Any]:
         """
         Consulta o ranking de execuções do mês (comparativo Túlio x Kaio e geral).
@@ -716,10 +719,11 @@ class WebrotaService:
         cache_key_hora = f"{prefixo_mes}_{hora_atual}"
 
         # 1. Se já calculou nesta hora, retorna do cache imediatamente
-        cached = cache.get_mensal(cache_key_hora)
-        if cached:
-            cached["janela_ativa"] = janela_ativa
-            return cached
+        if not force:
+            cached = cache.get_mensal(cache_key_hora)
+            if cached:
+                cached["janela_ativa"] = janela_ativa
+                return cached
 
         # 2. Se fora da janela operacional (antes das 08h ou a partir das 18h)
         # NUNCA executa requisição na WebRota!
@@ -867,3 +871,46 @@ class WebrotaService:
                 "erro": f"Falha ao gerar ranking mensal: {str(e)}",
                 "janela_ativa": janela_ativa
             }
+
+
+    @classmethod
+    async def executar_atualizacao_segundo_plano(cls, force: bool = False) -> Dict[str, Any]:
+        """
+        Executa a atualizacao proativa de segundo plano dos rankings diario e mensal.
+        Projetado para ser chamado por:
+        - Vercel Cron Jobs (GET /api/cron/ranking a cada hora entre 08:00 e 18:00 BRT)
+        - Background Worker interno em servidor continuo (FastAPI lifespan/task)
+        """
+        tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
+        agora_brt = datetime.datetime.now(tz_brt)
+        hora_atual = agora_brt.hour
+        janela_ativa = (8 <= hora_atual <= 18)
+
+        if not janela_ativa and not force:
+            return {
+                "sucesso": True,
+                "executado": False,
+                "motivo": f"Fora do horario operacional (08:00 as 18:00 BRT). Hora atual: {hora_atual:02d}h.",
+                "horario_brt": agora_brt.strftime("%d/%m/%Y %H:%M:%S"),
+                "janela_ativa": False
+            }
+
+        res_diario = await cls.ranking_diario(force=force)
+        res_mensal = await cls.ranking_mensal(force=force)
+
+        return {
+            "sucesso": True,
+            "executado": True,
+            "horario_brt": agora_brt.strftime("%d/%m/%Y %H:%M:%S"),
+            "janela_ativa": janela_ativa,
+            "diario": {
+                "sucesso": res_diario.get("sucesso", False),
+                "total_os": res_diario.get("total_os", 0),
+                "erro": res_diario.get("erro")
+            },
+            "mensal": {
+                "sucesso": res_mensal.get("sucesso", False),
+                "total_geral": res_mensal.get("total_comparativo", {}).get("total_geral", 0) if isinstance(res_mensal.get("total_comparativo"), dict) else 0,
+                "erro": res_mensal.get("erro")
+            }
+        }

@@ -1,3 +1,7 @@
+from contextlib import asynccontextmanager
+import asyncio
+import os
+import datetime
 from fastapi import FastAPI, Request, Query, HTTPException, Cookie, Form
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,12 +22,44 @@ from app.ai.knowledge_base import KNOWLEDGE_CHUNKS, INTENTS_LIST
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
+async def background_ranking_worker():
+    """
+    Worker em segundo plano para ambientes persistentes (VPS, Docker, Servidor Local).
+    Executa a verificacao/atualizacao horaria entre 08:00 e 18:00 BRT.
+    No Vercel (Serverless), o Vercel Cron chama diretamente /api/cron/ranking.
+    """
+    await asyncio.sleep(10)
+    while True:
+        try:
+            tz_brt = datetime.timezone(datetime.timedelta(hours=-3))
+            agora_brt = datetime.datetime.now(tz_brt)
+            hora_atual = agora_brt.hour
+            if 8 <= hora_atual <= 18:
+                await WebrotaService.executar_atualizacao_segundo_plano()
+        except Exception:
+            pass
+        await asyncio.sleep(300)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    worker_task = None
+    is_vercel = os.environ.get("VERCEL") == "1" or os.environ.get("VERCEL_ENV") is not None
+    if not is_vercel:
+        worker_task = asyncio.create_task(background_ranking_worker())
+    try:
+        yield
+    finally:
+        if worker_task:
+            worker_task.cancel()
+
 app = FastAPI(
     title=APP_NAME,
     description="Central de Suporte Web: Consultas de Veículos, Placas, Ordens de Serviço, Rastreamento e Rankings WebRota.",
     version="1.0.0",
     docs_url=None,
-    redoc_url=None
+    redoc_url=None,
+    lifespan=lifespan
 )
 
 # Monta diretórios de arquivos estáticos e templates
@@ -338,6 +374,26 @@ async def ranking_mensal(
 ):
     """Ranking mensal comparativo entre os técnicos (autentica via .env / Vercel)"""
     return await WebrotaService.ranking_mensal(ano=ano, mes=mes)
+
+
+@app.get("/api/cron/ranking")
+@app.post("/api/cron/ranking")
+async def cron_ranking(
+    request: Request,
+    force: bool = Query(False, description="Forcar atualizacao ignorando cache da hora atual")
+):
+    """
+    Endpoint executado automaticamente pelo Vercel Cron Jobs de 1 em 1 hora (08:00 as 18:00 BRT).
+    Atualiza e salva em cache o ranking diario e mensal usando o usuario dedicado do .env / Vercel.
+    """
+    cron_secret = os.environ.get("CRON_SECRET")
+    if cron_secret:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header != f"Bearer {cron_secret}":
+            raise HTTPException(status_code=401, detail="Nao autorizado: CRON_SECRET invalido")
+
+    resultado = await WebrotaService.executar_atualizacao_segundo_plano(force=force)
+    return resultado
 
 # ------------------------------------------
 # 5. Guias Técnicos

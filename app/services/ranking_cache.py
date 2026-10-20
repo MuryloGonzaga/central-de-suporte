@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 Gerenciador de Cache Persistente para Rankings de Ordens de Serviço (WebRota)
-Armazena snapshots horários em memória e persiste em arquivo JSON.
-Suporta fallback automático para /tmp em ambientes somente-leitura (como Vercel).
+Armazena snapshots horários em memória e persiste em arquivo JSON (com fallback para /tmp no Vercel).
+Suporta opcionalmente Vercel KV / Upstash Redis via REST API caso as variáveis de ambiente estejam configuradas.
 """
 
 import json
 import os
 import tempfile
+import urllib.request
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 
@@ -32,7 +33,6 @@ class RankingCacheManager:
         Tenta a pasta 'data/' do projeto; caso seja somente-leitura (Vercel),
         faz fallback para a pasta temporária do sistema operacional.
         """
-        # Raiz do projeto: .../Central de Suporte
         base_dir = Path(__file__).resolve().parent.parent.parent
         data_dir = base_dir / "data"
 
@@ -65,24 +65,84 @@ class RankingCacheManager:
                 "diario": self._cache_diario,
                 "mensal": self._cache_mensal
             }
-            # Gravação direta com encoding utf-8
             self._cache_file.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         except Exception as e:
             print(f"[RankingCache] Aviso ao salvar cache no disco ({self._cache_file}): {e}")
+
+    # ----------------------------------------------------------------
+    # SUPORTE OPCIONAL: VERCEL KV / UPSTASH REDIS VIA REST API
+    # ----------------------------------------------------------------
+
+    def _kv_configurado(self) -> bool:
+        url = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
+        token = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN")
+        return bool(url and token)
+
+    def _kv_get(self, key: str) -> Optional[Dict[str, Any]]:
+        url = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
+        token = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN")
+        if not url or not token:
+            return None
+        try:
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/get/{key}",
+                headers={"Authorization": f"Bearer {token}"}
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    result = data.get("result")
+                    if isinstance(result, str):
+                        return json.loads(result)
+                    elif isinstance(result, dict):
+                        return result
+        except Exception as e:
+            print(f"[RankingCache] KV get aviso ({key}): {e}")
+        return None
+
+    def _kv_set(self, key: str, value: Dict[str, Any]):
+        url = os.getenv("KV_REST_API_URL") or os.getenv("UPSTASH_REDIS_REST_URL")
+        token = os.getenv("KV_REST_API_TOKEN") or os.getenv("UPSTASH_REDIS_REST_TOKEN")
+        if not url or not token:
+            return
+        try:
+            val_str = json.dumps(value, ensure_ascii=False)
+            req = urllib.request.Request(
+                f"{url.rstrip('/')}/set/{key}",
+                data=val_str.encode("utf-8"),
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=3) as resp:
+                pass
+        except Exception as e:
+            print(f"[RankingCache] KV set aviso ({key}): {e}")
 
     # ----------------------------------------------------------------
     # MÉTODOS DE CONSULTA E ARMAZENAMENTO - RANKING DIÁRIO
     # ----------------------------------------------------------------
 
     def get_diario(self, key: str) -> Optional[Dict[str, Any]]:
-        """Recupera um snapshot diário específico pela chave (ex: '2026-10-17_14')."""
+        """Recupera um snapshot diário específico pela chave (ex: '2026-10-20_08')."""
         item = self._cache_diario.get(key)
-        return item.copy() if item else None
+        if item:
+            return item.copy()
+
+        # Tenta carregar do Vercel KV se configurado
+        if self._kv_configurado():
+            kv_item = self._kv_get(f"ranking_diario_{key}")
+            if kv_item:
+                self._cache_diario[key] = kv_item
+                return kv_item.copy()
+
+        return None
 
     def set_diario(self, key: str, valor: Dict[str, Any]):
-        """Armazena um snapshot diário em memória e persiste em disco."""
+        """Armazena um snapshot diário em memória, disco e Vercel KV (se ativo)."""
         self._cache_diario[key] = valor
         self._salvar_disco()
+        if self._kv_configurado():
+            self._kv_set(f"ranking_diario_{key}", valor)
 
     def obter_ultimo_snapshot_diario(self, dia_iso: str) -> Optional[Dict[str, Any]]:
         """
@@ -106,14 +166,26 @@ class RankingCacheManager:
     # ----------------------------------------------------------------
 
     def get_mensal(self, key: str) -> Optional[Dict[str, Any]]:
-        """Recupera um snapshot mensal específico pela chave (ex: '2026_10_14')."""
+        """Recupera um snapshot mensal específico pela chave (ex: '2026_10_08')."""
         item = self._cache_mensal.get(key)
-        return item.copy() if item else None
+        if item:
+            return item.copy()
+
+        # Tenta carregar do Vercel KV se configurado
+        if self._kv_configurado():
+            kv_item = self._kv_get(f"ranking_mensal_{key}")
+            if kv_item:
+                self._cache_mensal[key] = kv_item
+                return kv_item.copy()
+
+        return None
 
     def set_mensal(self, key: str, valor: Dict[str, Any]):
-        """Armazena um snapshot mensal em memória e persiste em disco."""
+        """Armazena um snapshot mensal em memória, disco e Vercel KV (se ativo)."""
         self._cache_mensal[key] = valor
         self._salvar_disco()
+        if self._kv_configurado():
+            self._kv_set(f"ranking_mensal_{key}", valor)
 
     def obter_ultimo_snapshot_mensal(self, prefixo_ano_mes: str) -> Optional[Dict[str, Any]]:
         """
@@ -129,4 +201,3 @@ class RankingCacheManager:
                 return self._cache_mensal[chaves_ordenadas[-1]].copy()
 
         return None
-
