@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import json
 
-from app.config import APP_NAME, DEBUG_MODE
+from app.config import APP_NAME, DEBUG_MODE, MAINTENANCE_MODE
 from app.services.achecar_service import AcheCarService, extrair_placas
 from app.services.webrota_service import WebrotaService
 from app.services.guias_service import GuiasService
@@ -29,6 +29,23 @@ app = FastAPI(
 # Monta diretórios de arquivos estáticos e templates
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+
+# ==========================================
+# MIDDLEWARE DE MANUTENÇÃO
+# ==========================================
+@app.middleware("http")
+async def maintenance_middleware(request: Request, call_next):
+    """Intercepta todas as requisições quando o modo manutenção está ativo."""
+    if MAINTENANCE_MODE:
+        # Libera arquivos estáticos (CSS, imagens, favicon) para a página de manutenção funcionar
+        if request.url.path.startswith("/static"):
+            return await call_next(request)
+        # Retorna a página de manutenção em HTML puro para qualquer outra rota
+        template = templates.get_template("maintenance.html")
+        html_content = template.render({"request": request})
+        return HTMLResponse(content=html_content, status_code=503)
+    return await call_next(request)
 
 # Modelos Pydantic para requisições da API
 class PlacasRequest(BaseModel):
