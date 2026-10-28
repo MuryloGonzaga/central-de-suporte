@@ -5,11 +5,15 @@
       "schedule": "0 20 * * *"
     }
   ],
+  "functions": {
+    "api/index.py": {
+      "includeFiles": "app/**"
+    }
+  },
   "rewrites": [
     {
       "source": "/(.*)",
-      "destination": "/api/index.py"
+      "destination": "/api/index.py?path=/$1"
     }
   ]
 }
-

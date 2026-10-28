@@ -66,6 +66,29 @@ app = FastAPI(
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+
+# ==========================================
+# MIDDLEWARE DE ROTEAMENTO VERCEL
+# ==========================================
+@app.middleware("http")
+async def vercel_path_middleware(request: Request, call_next):
+    """Corrige o caminho de requisicoes no Vercel Serverless."""
+    # 1. Se veio do rewrite da Vercel via query param ?path=...
+    path_param = request.query_params.get("path")
+    if path_param:
+        request.scope["path"] = path_param if path_param.startswith("/") else f"/{path_param}"
+    else:
+        # 2. Se a Vercel chamou o arquivo api/index.py diretamente
+        curr_path = request.scope.get("path", "")
+        if curr_path in ("/api/index.py", "/api/index", "/api", "/api/"):
+            request.scope["path"] = "/"
+        elif curr_path.startswith("/api/index.py/"):
+            request.scope["path"] = curr_path[len("/api/index.py"):]
+        elif curr_path.startswith("/api/index/"):
+            request.scope["path"] = curr_path[len("/api/index"):]
+
+    return await call_next(request)
+
 # Modelos Pydantic para requisições da API
 class PlacasRequest(BaseModel):
     placas: str = Field(..., description="Uma ou mais placas separadas por linha, espaço ou vírgula")
@@ -93,6 +116,8 @@ def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
 # ==========================================
 
 @app.get("/login", response_class=HTMLResponse)
+@app.get("/api/index.py/login", response_class=HTMLResponse)
+@app.get("/api/login", response_class=HTMLResponse)
 async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página de login. Redireciona para home se já autenticado."""
     if obter_usuario_sessao(cs_session):
@@ -104,6 +129,8 @@ async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(defa
     )
 
 @app.post("/login", response_class=HTMLResponse)
+@app.post("/api/index.py/login", response_class=HTMLResponse)
+@app.post("/api/login", response_class=HTMLResponse)
 async def processar_login(request: Request):
     """Processa o formulário de login via API WebRota."""
     username = ""
@@ -149,6 +176,10 @@ async def logout(cs_session: Optional[str] = Cookie(default=None)):
 # ==========================================
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/api/index.py", response_class=HTMLResponse)
+@app.get("/api/index", response_class=HTMLResponse)
+@app.get("/api", response_class=HTMLResponse)
+@app.get("/api/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página principal da Central de Suporte — requer autenticação."""
     usuario = obter_usuario_sessao(cs_session)
