@@ -68,6 +68,36 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
 # ==========================================
+# MIDDLEWARE DE NORMALIZACAO DE ROTAS VERCEL
+# ==========================================
+@app.middleware("http")
+async def vercel_path_normalizer(request: Request, call_next):
+    """
+    Normaliza o caminho da requisicao no Vercel Serverless.
+    Quando a Vercel roteia chamadas para api/index.py via rewrite,
+    ela pode passar /api/index.py ou /api/index no scope['path'].
+    Este middleware garante que o caminho original seja restaurado.
+    """
+    path = request.scope.get("path", "")
+    
+    # 1. Se a Vercel enviou o caminho original pelo cabecalho x-matched-path
+    matched = request.headers.get("x-matched-path", "")
+    if matched and not matched.startswith("/api/index") and matched != path:
+        request.scope["path"] = matched
+        path = matched
+
+    # 2. Normaliza caminhos que contem o prefixo do arquivo serverless
+    for prefix in ("/api/index.py", "/api/index"):
+        if path == prefix or path == f"{prefix}/":
+            request.scope["path"] = "/"
+            break
+        elif path.startswith(f"{prefix}/"):
+            request.scope["path"] = path[len(prefix):]
+            break
+
+    return await call_next(request)
+
+# ==========================================
 # MIDDLEWARE DE MANUTENÇÃO
 # ==========================================
 @app.middleware("http")
@@ -110,6 +140,8 @@ def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
 # ==========================================
 
 @app.get("/login", response_class=HTMLResponse)
+@app.get("/api/index.py/login", response_class=HTMLResponse)
+@app.get("/api/login", response_class=HTMLResponse)
 async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página de login. Redireciona para home se já autenticado."""
     if obter_usuario_sessao(cs_session):
@@ -121,6 +153,8 @@ async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(defa
     )
 
 @app.post("/login", response_class=HTMLResponse)
+@app.post("/api/index.py/login", response_class=HTMLResponse)
+@app.post("/api/login", response_class=HTMLResponse)
 async def processar_login(request: Request):
     """Processa o formulário de login via API WebRota."""
     username = ""
@@ -166,6 +200,10 @@ async def logout(cs_session: Optional[str] = Cookie(default=None)):
 # ==========================================
 
 @app.get("/", response_class=HTMLResponse)
+@app.get("/api/index.py", response_class=HTMLResponse)
+@app.get("/api/index", response_class=HTMLResponse)
+@app.get("/api", response_class=HTMLResponse)
+@app.get("/api/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página principal da Central de Suporte — requer autenticação."""
     usuario = obter_usuario_sessao(cs_session)
@@ -184,6 +222,7 @@ async def pagina_inicial(request: Request, cs_session: Optional[str] = Cookie(de
     )
 
 @app.get("/chat", response_class=HTMLResponse)
+@app.get("/api/index.py/chat", response_class=HTMLResponse)
 async def pagina_chat(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página dedicada do Chat Inteligente com a Rede Neural dos Manuais — requer autenticação."""
     usuario = obter_usuario_sessao(cs_session)
