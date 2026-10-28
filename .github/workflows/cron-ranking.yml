@@ -1,0 +1,31 @@
+name: Atualizar Ranking WebRota
+
+on:
+  schedule:
+    # Executa a cada hora entre 08:00 e 18:00 (Horário de Brasília) = 11:00 às 21:00 (UTC)
+    - cron: '0 11-21 * * *'
+  workflow_dispatch: # Permite disparar manualmente para testar pelo botão no GitHub Actions
+
+jobs:
+  executar-ranking:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Disparar atualização do ranking no Vercel
+        run: |
+          URL="${{ secrets.VERCEL_APP_URL }}"
+          if [ -z "$URL" ]; then
+            echo "Atenção: Configure a variável 'VERCEL_APP_URL' nas Secrets do seu repositório GitHub (ex: https://seu-app.vercel.app)"
+            exit 1
+          fi
+
+          # Remove barra final se houver
+          URL="${URL%/}"
+
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
+          if [ -n "$CRON_SECRET" ]; then
+            curl -s -f -H "Authorization: Bearer $CRON_SECRET" "$URL/api/cron/ranking"
+          else
+            curl -s -f "$URL/api/cron/ranking"
+          fi
+          echo "Ranking atualizado com sucesso!"
+
