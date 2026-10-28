@@ -233,6 +233,21 @@ async def status_sistema(cs_session: Optional[str] = Cookie(default=None)):
         "webrota": status_webrota
     }
 
+@app.get("/api/status/env")
+async def status_env():
+    """Diagnóstico seguro das variáveis de ambiente na Vercel (sem expor senhas)."""
+    from app.config import WEBROTA_USER, WEBROTA_RANKING_USER, WEBROTA_RANKING_PASS
+    return {
+        "status": "ok",
+        "ambiente": os.getenv("VERCEL_ENV", "local"),
+        "webrota_user_presente": bool(WEBROTA_USER),
+        "webrota_user_inicio": f"{WEBROTA_USER[0]}***" if WEBROTA_USER else "VAZIO",
+        "webrota_pass_presente": bool(WEBROTA_RANKING_PASS),
+        "ranking_user_presente": bool(WEBROTA_RANKING_USER),
+        "total_variaveis_no_sistema": len(os.environ),
+        "chaves_webrota_detectadas": [k for k in os.environ.keys() if "WEBROTA" in k.upper()]
+    }
+
 # ------------------------------------------
 # 1. Consulta AcheCar (Base Pública)
 # ------------------------------------------

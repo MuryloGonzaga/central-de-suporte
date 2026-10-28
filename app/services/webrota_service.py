@@ -43,8 +43,9 @@ class WebrotaService:
             ):
                 return cls._ranking_token
 
-            usuario_ranking = WEBROTA_RANKING_USER
-            senha_ranking = WEBROTA_RANKING_PASS
+            from app.config import get_env_flexible
+            usuario_ranking = get_env_flexible("WEBROTA_RANKING_USER", "WEBROTA_RANKING_USUARIO", "WEBROTA_USER", "WEBROTA_USUARIO", "WEBROTA_LOGIN", default=WEBROTA_RANKING_USER)
+            senha_ranking = get_env_flexible("WEBROTA_RANKING_PASS", "WEBROTA_RANKING_PASSWORD", "WEBROTA_RANKING_SENHA", "WEBROTA_PASS", default=WEBROTA_RANKING_PASS)
 
             if not usuario_ranking or not senha_ranking:
                 print("[Ranking WebRota] Aviso: WEBROTA_USER/WEBROTA_PASS não configurados no .env ou Vercel.")
