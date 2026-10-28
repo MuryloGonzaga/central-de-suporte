@@ -28,4 +28,4 @@ APP_NAME = os.getenv("APP_NAME", "Central de Suporte - Rastreamento & WebRota")
 # Modo Manutenção — quando True, todas as rotas exibem a página de manutenção
 # Para ativar:   MAINTENANCE_MODE=true  (ou 1 ou yes)
 # Para desativar: MAINTENANCE_MODE=false (ou 0 ou no)
-MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "true").lower() in ("true", "1", "yes")
+MAINTENANCE_MODE = os.getenv("MAINTENANCE_MODE", "false").lower() in ("true", "1", "yes")
