@@ -178,47 +178,61 @@ class WebrotaService:
             close_session = True
 
         try:
-            for formato in placas_para_testar:
-                url_vehicle = f"{cls.BASE_URL}/vehicle/"
-                params = {
-                    "visible": "2",
-                    "plate": formato,
-                    "includes": "customer,device,vehicle_model,vehicle_model.vehicle_model_manufacturer,fuel_category,fleet,vehicle_color,vehicle_category,licenses,driver,work_shift,state,accessories_vehicle,cost_center,point_of_interest_base,customer.afiliate,vehicle_cost_centers,vehicle_cost_centers.cost_center"
-                }
+            for tentativa in range(1, 3):
+                try:
+                    for formato in placas_para_testar:
+                        url_vehicle = f"{cls.BASE_URL}/vehicle/"
+                        params = {
+                            "visible": "2",
+                            "plate": formato,
+                            "includes": "customer,device,vehicle_model,vehicle_model.vehicle_model_manufacturer,fuel_category,fleet,vehicle_color,vehicle_category,licenses,driver,work_shift,state,accessories_vehicle,cost_center,point_of_interest_base,customer.afiliate,vehicle_cost_centers,vehicle_cost_centers.cost_center"
+                        }
 
-                async with session.get(url_vehicle, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
-                    if resp.status == 200:
-                        dados = await resp.json()
-                        lista = dados if isinstance(dados, list) else dados.get('data', [])
-                        if lista:
-                            veiculo_encontrado = lista[0]
-                            break
-                    elif resp.status in (401, 403):
-                        await cls.obter_token(forcar_renovacao=True)
+                        async with session.get(url_vehicle, params=params, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                            if resp.status == 200:
+                                dados = await resp.json()
+                                lista = dados if isinstance(dados, list) else dados.get('data', [])
+                                if lista:
+                                    veiculo_encontrado = lista[0]
+                                    break
+                            elif resp.status in (401, 403):
+                                await cls.obter_token(forcar_renovacao=True)
 
-            if veiculo_encontrado:
-                modelo_data = veiculo_encontrado.get('vehicle_model') or {}
-                marca_data = modelo_data.get('vehicle_model_manufacturer') or {}
+                    if veiculo_encontrado:
+                        modelo_data = veiculo_encontrado.get('vehicle_model') or {}
+                        marca_data = modelo_data.get('vehicle_model_manufacturer') or {}
 
-                return {
-                    "placa": placa_limpa if len(placa_limpa) == 7 else placa,
-                    "sucesso": True,
-                    "marca": marca_data.get('name', 'Desconhecida'),
-                    "modelo": modelo_data.get('name', 'Desconhecido'),
-                    "dados_completos": veiculo_encontrado
-                }
-            else:
-                return {
-                    "placa": placa,
-                    "sucesso": False,
-                    "erro": "Veículo não encontrado no cadastro da WebRota."
-                }
-        except Exception as e:
-            return {
-                "placa": placa,
-                "sucesso": False,
-                "erro": f"Erro de comunicação com a WebRota: {str(e)}"
-            }
+                        return {
+                            "placa": placa_limpa if len(placa_limpa) == 7 else placa,
+                            "sucesso": True,
+                            "marca": marca_data.get('name', 'Desconhecida'),
+                            "modelo": modelo_data.get('name', 'Desconhecido'),
+                            "dados_completos": veiculo_encontrado
+                        }
+                    else:
+                        return {
+                            "placa": placa,
+                            "sucesso": False,
+                            "erro": "Veículo não encontrado no cadastro da WebRota."
+                        }
+                except (asyncio.TimeoutError, aiohttp.ServerTimeoutError) as e:
+                    if tentativa < 2:
+                        await asyncio.sleep(1.5)
+                        continue
+                    return {
+                        "placa": placa,
+                        "sucesso": False,
+                        "erro": "Tempo de espera esgotado (Timeout) ao consultar a WebRota."
+                    }
+                except Exception as e:
+                    if tentativa < 2 and "timeout" in str(e).lower():
+                        await asyncio.sleep(1.5)
+                        continue
+                    return {
+                        "placa": placa,
+                        "sucesso": False,
+                        "erro": f"Erro de comunicação com a WebRota: {str(e)}"
+                    }
         finally:
             if close_session:
                 await session.close()

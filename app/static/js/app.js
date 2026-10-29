@@ -279,6 +279,11 @@ async function consultarAcheCarStream() {
                     }
                 } else if (data.tipo === 'pausa') {
                     if (progressText) progressText.textContent = data.mensagem;
+                } else if (data.tipo === 'tentativa') {
+                    if (progressText) {
+                        progressText.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin" style="color: #F59E0B;"></i> ${data.mensagem}`;
+                    }
+                    showToast(data.mensagem, 'warning');
                 } else if (data.tipo === 'alerta') {
                     showToast(data.mensagem, 'warning');
                 } else if (data.tipo === 'concluido' || data.tipo === 'erro') {
@@ -450,6 +455,11 @@ async function consultarLocalInstalacaoStream() {
                             if (progressText) progressText.textContent = data.mensagem;
                             if (progressPct) progressPct.textContent = `${data.percentual}%`;
                             if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                        } else if (data.tipo === 'tentativa') {
+                            if (progressText) {
+                                progressText.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin" style="color: #F59E0B;"></i> ${data.mensagem}`;
+                            }
+                            showToast(data.mensagem, 'warning');
                         } else if (data.tipo === 'progresso') {
                             if (progressPct) progressPct.textContent = `${data.percentual}%`;
                             if (progressFill) progressFill.style.width = `${data.percentual}%`;
@@ -484,6 +494,7 @@ window.consultarLocalInstalacao = consultarLocalInstalacaoStream;
 // --------------------------------------------------------------------
 async function carregarRankingDiario() {
     const container = document.getElementById('lista-ranking-diario');
+    if (!container) return;
     const totalSpan = document.getElementById('total-os-diario');
     const dataLabel = document.getElementById('data-label-diario');
     const proximaAtt = document.getElementById('proxima-att-diario');
@@ -559,6 +570,7 @@ async function carregarRankingDiario() {
 
 async function carregarRankingMensal() {
     const container = document.getElementById('lista-ranking-mensal');
+    if (!container) return;
     const totalSpan = document.getElementById('total-os-mensal');
     const periodoLabel = document.getElementById('periodo-label-mensal');
     const proximaAtt = document.getElementById('proxima-att-mensal');

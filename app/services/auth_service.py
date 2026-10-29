@@ -14,8 +14,25 @@ class AuthService:
     URL_LOGIN_WEBROTA = "https://api.webrota.com.br/auth/login/"
     _duracao_sessao_horas = 12
 
-    # Sessões ativas em memória: token_sessao -> { "username", "nome", "perfil", "webrota_token", "expira" }
+    # Usuários com permissão para acessar TODAS as funções do sistema
+    USUARIOS_ACESSO_TOTAL = {
+        "william.lopes",
+        "pamela.stender",
+        "murylo.gonzaga"
+    }
+
+    # Sessões ativas em memória: token_sessao -> { "username", "nome", "perfil", "webrota_token", "acesso_total", "expira" }
     _sessoes: Dict[str, Dict[str, Any]] = {}
+
+    @classmethod
+    def eh_usuario_total(cls, username: Optional[str]) -> bool:
+        """Verifica se o usuário possui permissão de acesso a todas as funções."""
+        if not username:
+            return False
+        u = username.strip().lower()
+        if "@" in u:
+            u = u.split("@")[0].strip()
+        return u in cls.USUARIOS_ACESSO_TOTAL
 
     @classmethod
     async def autenticar(cls, username: str, password: str) -> Optional[Dict[str, Any]]:
@@ -80,11 +97,15 @@ class AuthService:
                         from app.services.webrota_service import WebrotaService
                         WebrotaService.set_token_ativo(token)
 
+                        acesso_total = cls.eh_usuario_total(username_limpo)
+
                         return {
                             "username": username_limpo,
                             "nome": nome,
-                            "perfil": perfil,
-                            "webrota_token": token
+                            "perfil": "Administrador" if acesso_total else perfil,
+                            "webrota_token": token,
+                            "acesso_total": acesso_total,
+                            "is_admin": acesso_total
                         }
                     else:
                         print(f"[Auth WebRota] Falha de login para '{username_limpo}': HTTP {status}")
@@ -100,11 +121,15 @@ class AuthService:
         agora = datetime.datetime.now(datetime.timezone.utc)
         expira = agora + datetime.timedelta(hours=cls._duracao_sessao_horas)
 
+        username = dados_usuario["username"]
+        acesso_total = cls.eh_usuario_total(username)
+
         cls._sessoes[token] = {
-            "username": dados_usuario["username"],
+            "username": username,
             "nome": dados_usuario["nome"],
-            "perfil": dados_usuario.get("perfil", "Colaborador"),
+            "perfil": "Administrador" if acesso_total else dados_usuario.get("perfil", "Colaborador"),
             "webrota_token": dados_usuario.get("webrota_token"),
+            "acesso_total": acesso_total,
             "criada_em": agora,
             "expira": expira
         }
@@ -128,11 +153,16 @@ class AuthService:
             from app.services.webrota_service import WebrotaService
             WebrotaService.set_token_ativo(webrota_token)
 
+        username = sessao["username"]
+        acesso_total = cls.eh_usuario_total(username)
+
         return {
-            "username": sessao["username"],
+            "username": username,
             "nome": sessao["nome"],
-            "perfil": sessao["perfil"],
-            "webrota_token": webrota_token
+            "perfil": "Administrador" if acesso_total else sessao.get("perfil", "Colaborador"),
+            "webrota_token": webrota_token,
+            "acesso_total": acesso_total,
+            "is_admin": acesso_total
         }
 
     @classmethod

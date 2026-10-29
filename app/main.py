@@ -75,10 +75,19 @@ async def vercel_path_middleware(request: Request, call_next):
     """Corrige o caminho de requisicoes no Vercel Serverless."""
     # 1. Se veio do rewrite da Vercel via query param ?path=...
     path_param = request.query_params.get("path")
-    if path_param:
-        request.scope["path"] = path_param if path_param.startswith("/") else f"/{path_param}"
+    if path_param is not None:
+        clean_path = path_param.strip()
+        if not clean_path.startswith("/"):
+            clean_path = f"/{clean_path}"
+        if clean_path in ("/api/index.py", "/api/index", "/api", "/api/"):
+            clean_path = "/"
+        elif clean_path.startswith("/api/index.py/"):
+            clean_path = clean_path[len("/api/index.py"):]
+        elif clean_path.startswith("/api/index/"):
+            clean_path = clean_path[len("/api/index"):]
+        request.scope["path"] = clean_path
     else:
-        # 2. Se a Vercel chamou o arquivo api/index.py diretamente
+        # 2. Se a Vercel chamou o arquivo api/index.py diretamente sem rewrite query param
         curr_path = request.scope.get("path", "")
         if curr_path in ("/api/index.py", "/api/index", "/api", "/api/"):
             request.scope["path"] = "/"
@@ -88,6 +97,17 @@ async def vercel_path_middleware(request: Request, call_next):
             request.scope["path"] = curr_path[len("/api/index"):]
 
     return await call_next(request)
+
+@app.exception_handler(404)
+async def custom_404_handler(request: Request, exc: Exception):
+    """Evita exibicao de 'detail: Not Found' no navegador, redirecionando para a rota inicial."""
+    path = request.url.path
+    if path.startswith("/api/"):
+        return JSONResponse(
+            status_code=404,
+            content={"sucesso": False, "erro": f"Endpoint de API nao encontrado: {path}"}
+        )
+    return RedirectResponse(url="/", status_code=302)
 
 # Modelos Pydantic para requisições da API
 class PlacasRequest(BaseModel):
@@ -104,6 +124,18 @@ class ChatRequest(BaseModel):
 # Helper: valida sessão e obtém token da WebRota
 def obter_usuario_sessao(cs_session: Optional[str]) -> Optional[Dict[str, Any]]:
     return AuthService.validar_sessao(cs_session)
+
+def exigir_acesso_total(cs_session: Optional[str]) -> Dict[str, Any]:
+    """Valida se o usuário logado tem permissão total (william.lopes, pamela.stender, murylo.gonzaga)."""
+    usuario = obter_usuario_sessao(cs_session)
+    if not usuario:
+        raise HTTPException(status_code=401, detail="Sessão expirada ou não autenticada.")
+    if not usuario.get("acesso_total", False):
+        raise HTTPException(
+            status_code=403,
+            detail="Acesso restrito. Seu usuário possui permissão de acesso apenas ao Chat IA e Consulta de Placas."
+        )
+    return usuario
 
 def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
     usuario = obter_usuario_sessao(cs_session)
@@ -312,6 +344,7 @@ async def consultar_placas_lote(req: PlacasRequest):
 @app.get("/api/consulta/veiculo/{placa}")
 async def consultar_veiculo_webrota_unico(placa: str, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta individual de veículo na base cadastral da WebRota"""
+    exigir_acesso_total(cs_session)
     token = obter_token_webrota(cs_session)
     resultado = await WebrotaService.consultar_veiculo(placa, token=token)
     return resultado
@@ -319,6 +352,7 @@ async def consultar_veiculo_webrota_unico(placa: str, cs_session: Optional[str] 
 @app.post("/api/consulta/veiculo")
 async def consultar_veiculos_webrota_lote(req: PlacasRequest, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta em lote de veículos na base cadastral da WebRota"""
+    exigir_acesso_total(cs_session)
     token = obter_token_webrota(cs_session)
     linhas = [linha.strip() for linha in req.placas.split('\n') if linha.strip()]
     placas_validas = []
@@ -355,6 +389,7 @@ async def consultar_veiculos_webrota_lote(req: PlacasRequest, cs_session: Option
 @app.get("/api/consulta/local/{identificador}")
 async def consultar_local_unico(identificador: str, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta local de instalação da última OS para uma placa ou máquina"""
+    exigir_acesso_total(cs_session)
     token = obter_token_webrota(cs_session)
     resultado = await WebrotaService.consultar_local_instalacao(identificador, token=token)
     return resultado
@@ -362,6 +397,7 @@ async def consultar_local_unico(identificador: str, cs_session: Optional[str] = 
 @app.post("/api/consulta/local")
 async def consultar_locais_lote(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta locais de instalação para múltiplos identificadores/placas"""
+    exigir_acesso_total(cs_session)
     token = obter_token_webrota(cs_session)
     linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
     identificadores = list(dict.fromkeys(linhas))
@@ -383,6 +419,7 @@ async def consultar_locais_lote(req: IdentificadoresRequest, cs_session: Optiona
 @app.post("/api/consulta/local/stream")
 async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
     """Streaming SSE para consulta de locais de instalação com barra de progresso."""
+    exigir_acesso_total(cs_session)
     token = obter_token_webrota(cs_session)
     linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
     identificadores = list(dict.fromkeys(linhas))
@@ -408,17 +445,21 @@ async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optio
 
 @app.get("/api/ranking/diario")
 async def ranking_diario(
-    data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)")
+    data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)"),
+    cs_session: Optional[str] = Cookie(default=None)
 ):
     """Ranking diário de ordens de serviço executadas na WebRota (autentica via .env / Vercel)"""
+    exigir_acesso_total(cs_session)
     return await WebrotaService.ranking_diario(data_referencia=data)
 
 @app.get("/api/ranking/mensal")
 async def ranking_mensal(
     ano: Optional[int] = Query(None, description="Ano de referência"),
-    mes: Optional[int] = Query(None, description="Mês de referência (1-12)")
+    mes: Optional[int] = Query(None, description="Mês de referência (1-12)"),
+    cs_session: Optional[str] = Cookie(default=None)
 ):
     """Ranking mensal comparativo entre os técnicos (autentica via .env / Vercel)"""
+    exigir_acesso_total(cs_session)
     return await WebrotaService.ranking_mensal(ano=ano, mes=mes)
 
 
@@ -497,8 +538,9 @@ async def chat_status_rede_neural():
     }
 
 @app.post("/api/chat/retreinar")
-async def chat_retreinar_rede_neural():
+async def chat_retreinar_rede_neural(cs_session: Optional[str] = Cookie(default=None)):
     """Força o retreinamento da Rede Neural a partir da base atualizada de manuais"""
+    exigir_acesso_total(cs_session)
     neural_brain.treinar()
     return {
         "sucesso": True,

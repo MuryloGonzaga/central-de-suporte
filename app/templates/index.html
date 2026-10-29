@@ -50,6 +50,7 @@
                     <i class="fa-solid fa-car-side"></i>
                     <span>Consulta Placa (AcheCar)</span>
                 </button>
+                {% if usuario.acesso_total %}
                 <button class="nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
                     <i class="fa-solid fa-map-location-dot"></i>
                     <span>Local de Instalação</span>
@@ -58,6 +59,7 @@
                     <i class="fa-solid fa-trophy"></i>
                     <span>Rankings de OS</span>
                 </button>
+                {% endif %}
             </nav>
 
             <div class="sidebar-footer">
@@ -133,6 +135,7 @@
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
                             </div>
+                            {% if usuario.acesso_total %}
                             <div class="welcome-action-card" data-goto="tab-local">
                                 <div class="wac-icon bg-green"><i class="fa-solid fa-map-location-dot"></i></div>
                                 <div class="wac-info">
@@ -149,6 +152,7 @@
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
                             </div>
+                            {% endif %}
                         </div>
                     </div>
                 </section>
@@ -226,6 +230,7 @@
                     </div>
                 </section>
 
+                {% if usuario.acesso_total %}
                 <!-- TAB 2: LOCAL DE INSTALAÇÃO (ORDEM DE SERVIÇO) -->
                 <section class="tab-pane{% if aba_inicial == 'tab-local' %} active{% endif %}" id="tab-local">
                     <div class="card">
@@ -356,6 +361,7 @@
                         </div>
                     </div>
                 </section>
+                {% endif %}
 
                 <!-- TAB 0: CHAT IA - MANUAIS DOS APARELHOS -->
                 <section class="tab-pane{% if aba_inicial == 'tab-chat' %} active{% endif %}" id="tab-chat">
@@ -453,6 +459,7 @@
             </div>
             <span>Placas</span>
         </button>
+        {% if usuario.acesso_total %}
         <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
             <div class="bottom-nav-icon-wrapper">
                 <i class="fa-solid fa-map-location-dot"></i>
@@ -465,6 +472,7 @@
             </div>
             <span>Rankings</span>
         </button>
+        {% endif %}
     </nav>
 
     <!-- Toast Notifications -->
