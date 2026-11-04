@@ -423,10 +423,20 @@ async function consultarLocalInstalacaoStream() {
         const response = await fetch('/api/consulta/local/stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ identificadores: texto })
         });
 
         if (!response.ok) {
+            if (response.status === 401) {
+                showToast('Sua sessão expirou. Redirecionando para login...', 'warning');
+                setTimeout(() => { window.location.href = '/login'; }, 1500);
+                return;
+            }
+            if (response.status === 403) {
+                showToast('Acesso restrito. Seu usuário não possui permissão para consultar locais de instalação.', 'error');
+                return;
+            }
             throw new Error(`Erro no servidor: ${response.status}`);
         }
 
@@ -507,7 +517,15 @@ async function carregarRankingDiario() {
     const url = dataSel ? `/api/ranking/diario?data=${dataSel}` : '/api/ranking/diario';
 
     try {
-        const resp = await fetch(url);
+        const resp = await fetch(url, { credentials: 'include' });
+        if (resp.status === 401) {
+            container.innerHTML = `<div class="empty-state">Sua sessão expirou. <a href="/login" style="color: var(--primary); text-decoration: underline;">Clique aqui para entrar novamente</a>.</div>`;
+            return;
+        }
+        if (resp.status === 403) {
+            container.innerHTML = `<div class="empty-state">Acesso restrito aos rankings de OS.</div>`;
+            return;
+        }
         const data = await resp.json();
 
         if (badgeJanela) {
@@ -579,7 +597,15 @@ async function carregarRankingMensal() {
     container.innerHTML = '<div class="loading-state"><i class="fa-solid fa-spinner fa-spin"></i> Carregando comparativo mensal...</div>';
 
     try {
-        const resp = await fetch('/api/ranking/mensal');
+        const resp = await fetch('/api/ranking/mensal', { credentials: 'include' });
+        if (resp.status === 401) {
+            container.innerHTML = `<div class="empty-state">Sua sessão expirou. <a href="/login" style="color: var(--primary); text-decoration: underline;">Clique aqui para entrar novamente</a>.</div>`;
+            return;
+        }
+        if (resp.status === 403) {
+            container.innerHTML = `<div class="empty-state">Acesso restrito ao ranking mensal.</div>`;
+            return;
+        }
         const data = await resp.json();
 
         if (badgeJanela) {

@@ -196,7 +196,10 @@ class WebrotaService:
                                     veiculo_encontrado = lista[0]
                                     break
                             elif resp.status in (401, 403):
-                                await cls.obter_token(forcar_renovacao=True)
+                                novo_token = await cls.obter_token(forcar_renovacao=True)
+                                if novo_token and novo_token != token:
+                                    token = novo_token
+                                    headers["Authorization"] = f"Bearer {token}"
 
                     if veiculo_encontrado:
                         modelo_data = veiculo_encontrado.get('vehicle_model') or {}
@@ -304,6 +307,22 @@ class WebrotaService:
                             serial = dev.get('serial')
                             if serial and serial not in seriais_encontrados:
                                 seriais_encontrados.append(serial)
+                    elif resp.status in (401, 403):
+                        novo_token = await cls.obter_token(forcar_renovacao=True)
+                        if novo_token and novo_token != token:
+                            token = novo_token
+                            headers["Authorization"] = f"Bearer {token}"
+                            async with session.get(url_device, params=params_device, headers=headers, timeout=aiohttp.ClientTimeout(total=15)) as resp2:
+                                if resp2.status == 200:
+                                    dados2 = await resp2.json()
+                                    lista_devs = dados2 if isinstance(dados2, list) else dados2.get('data', [])
+                                    for dev in lista_devs:
+                                        veiculo = dev.get('vehicle', {})
+                                        if veiculo and '*' in veiculo.get('plate', ''):
+                                            continue
+                                        serial = dev.get('serial')
+                                        if serial and serial not in seriais_encontrados:
+                                            seriais_encontrados.append(serial)
 
                 if seriais_encontrados:
                     break

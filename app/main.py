@@ -121,15 +121,27 @@ class ChatRequest(BaseModel):
     aparelho: Optional[str] = Field(None, description="Filtro opcional do modelo (ex: ST340UR, ST8300, ST310, ST8310UM)")
     historico: Optional[List[Dict[str, str]]] = Field(None, description="Histórico prévio da conversa")
 
-# Helper: valida sessão e obtém token da WebRota
-def obter_usuario_sessao(cs_session: Optional[str]) -> Optional[Dict[str, Any]]:
-    return AuthService.validar_sessao(cs_session)
+# Helper: valida sessão e obtém token da WebRota (suporta cookie direto, request.cookies e cabeçalhos)
+def obter_usuario_sessao(cs_session: Optional[str] = None, request: Optional[Request] = None) -> Optional[Dict[str, Any]]:
+    token = cs_session
+    if not token and request is not None:
+        token = request.cookies.get("cs_session")
+        if not token:
+            auth_hdr = request.headers.get("Authorization") or request.headers.get("x-cs-session")
+            if auth_hdr and auth_hdr.startswith("Bearer "):
+                token = auth_hdr[7:].strip()
+            elif auth_hdr:
+                token = auth_hdr.strip()
+    return AuthService.validar_sessao(token)
 
-def exigir_acesso_total(cs_session: Optional[str]) -> Dict[str, Any]:
+def exigir_acesso_total(cs_session: Optional[str] = None, request: Optional[Request] = None) -> Dict[str, Any]:
     """Valida se o usuário logado tem permissão total (william.lopes, pamela.stender, murylo.gonzaga)."""
-    usuario = obter_usuario_sessao(cs_session)
+    usuario = obter_usuario_sessao(cs_session, request=request)
     if not usuario:
-        raise HTTPException(status_code=401, detail="Sessão expirada ou não autenticada.")
+        raise HTTPException(
+            status_code=401,
+            detail="Sessão expirada ou não autenticada. Por favor, faça login novamente."
+        )
     if not usuario.get("acesso_total", False):
         raise HTTPException(
             status_code=403,
@@ -137,8 +149,8 @@ def exigir_acesso_total(cs_session: Optional[str]) -> Dict[str, Any]:
         )
     return usuario
 
-def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
-    usuario = obter_usuario_sessao(cs_session)
+def obter_token_webrota(cs_session: Optional[str] = None, request: Optional[Request] = None) -> Optional[str]:
+    usuario = obter_usuario_sessao(cs_session, request=request)
     if usuario and usuario.get("webrota_token"):
         return usuario["webrota_token"]
     return WebrotaService._token
@@ -152,7 +164,7 @@ def obter_token_webrota(cs_session: Optional[str] = None) -> Optional[str]:
 @app.get("/api/login", response_class=HTMLResponse)
 async def pagina_login(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página de login. Redireciona para home se já autenticado."""
-    if obter_usuario_sessao(cs_session):
+    if obter_usuario_sessao(cs_session, request=request):
         return RedirectResponse(url="/", status_code=302)
     return templates.TemplateResponse(
         request=request,
@@ -191,16 +203,18 @@ async def processar_login(request: Request):
         value=token,
         max_age=43200,
         httponly=True,
-        samesite="lax"
+        samesite="lax",
+        path="/"
     )
     return response
 
 @app.get("/logout")
-async def logout(cs_session: Optional[str] = Cookie(default=None)):
+async def logout(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Encerra a sessão do usuário."""
-    AuthService.encerrar_sessao(cs_session)
+    token = cs_session or request.cookies.get("cs_session")
+    AuthService.encerrar_sessao(token)
     response = RedirectResponse(url="/login", status_code=302)
-    response.delete_cookie("cs_session")
+    response.delete_cookie("cs_session", path="/")
     return response
 
 # ==========================================
@@ -214,7 +228,7 @@ async def logout(cs_session: Optional[str] = Cookie(default=None)):
 @app.get("/api/", response_class=HTMLResponse)
 async def pagina_inicial(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Página principal da Central de Suporte — requer autenticação."""
-    usuario = obter_usuario_sessao(cs_session)
+    usuario = obter_usuario_sessao(cs_session, request=request)
     if not usuario:
         return RedirectResponse(url="/login", status_code=302)
     return templates.TemplateResponse(
@@ -342,18 +356,18 @@ async def consultar_placas_lote(req: PlacasRequest):
 # ------------------------------------------
 
 @app.get("/api/consulta/veiculo/{placa}")
-async def consultar_veiculo_webrota_unico(placa: str, cs_session: Optional[str] = Cookie(default=None)):
+async def consultar_veiculo_webrota_unico(placa: str, request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta individual de veículo na base cadastral da WebRota"""
-    exigir_acesso_total(cs_session)
-    token = obter_token_webrota(cs_session)
+    exigir_acesso_total(cs_session, request=request)
+    token = obter_token_webrota(cs_session, request=request)
     resultado = await WebrotaService.consultar_veiculo(placa, token=token)
     return resultado
 
 @app.post("/api/consulta/veiculo")
-async def consultar_veiculos_webrota_lote(req: PlacasRequest, cs_session: Optional[str] = Cookie(default=None)):
+async def consultar_veiculos_webrota_lote(req: PlacasRequest, request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta em lote de veículos na base cadastral da WebRota"""
-    exigir_acesso_total(cs_session)
-    token = obter_token_webrota(cs_session)
+    exigir_acesso_total(cs_session, request=request)
+    token = obter_token_webrota(cs_session, request=request)
     linhas = [linha.strip() for linha in req.placas.split('\n') if linha.strip()]
     placas_validas = []
     placas_invalidas = []
@@ -387,18 +401,18 @@ async def consultar_veiculos_webrota_lote(req: PlacasRequest, cs_session: Option
 # ------------------------------------------
 
 @app.get("/api/consulta/local/{identificador}")
-async def consultar_local_unico(identificador: str, cs_session: Optional[str] = Cookie(default=None)):
+async def consultar_local_unico(identificador: str, request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta local de instalação da última OS para uma placa ou máquina"""
-    exigir_acesso_total(cs_session)
-    token = obter_token_webrota(cs_session)
+    exigir_acesso_total(cs_session, request=request)
+    token = obter_token_webrota(cs_session, request=request)
     resultado = await WebrotaService.consultar_local_instalacao(identificador, token=token)
     return resultado
 
 @app.post("/api/consulta/local")
-async def consultar_locais_lote(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
+async def consultar_locais_lote(req: IdentificadoresRequest, request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Consulta locais de instalação para múltiplos identificadores/placas"""
-    exigir_acesso_total(cs_session)
-    token = obter_token_webrota(cs_session)
+    exigir_acesso_total(cs_session, request=request)
+    token = obter_token_webrota(cs_session, request=request)
     linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
     identificadores = list(dict.fromkeys(linhas))
 
@@ -417,10 +431,10 @@ async def consultar_locais_lote(req: IdentificadoresRequest, cs_session: Optiona
     }
 
 @app.post("/api/consulta/local/stream")
-async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optional[str] = Cookie(default=None)):
+async def consultar_locais_stream(req: IdentificadoresRequest, request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Streaming SSE para consulta de locais de instalação com barra de progresso."""
-    exigir_acesso_total(cs_session)
-    token = obter_token_webrota(cs_session)
+    exigir_acesso_total(cs_session, request=request)
+    token = obter_token_webrota(cs_session, request=request)
     linhas = [linha.strip().upper() for linha in req.identificadores.split('\n') if linha.strip()]
     identificadores = list(dict.fromkeys(linhas))
 
@@ -445,21 +459,23 @@ async def consultar_locais_stream(req: IdentificadoresRequest, cs_session: Optio
 
 @app.get("/api/ranking/diario")
 async def ranking_diario(
+    request: Request,
     data: Optional[str] = Query(None, description="Data no formato AAAA-MM-DD (padrão: hoje)"),
     cs_session: Optional[str] = Cookie(default=None)
 ):
     """Ranking diário de ordens de serviço executadas na WebRota (autentica via .env / Vercel)"""
-    exigir_acesso_total(cs_session)
+    exigir_acesso_total(cs_session, request=request)
     return await WebrotaService.ranking_diario(data_referencia=data)
 
 @app.get("/api/ranking/mensal")
 async def ranking_mensal(
+    request: Request,
     ano: Optional[int] = Query(None, description="Ano de referência"),
     mes: Optional[int] = Query(None, description="Mês de referência (1-12)"),
     cs_session: Optional[str] = Cookie(default=None)
 ):
     """Ranking mensal comparativo entre os técnicos (autentica via .env / Vercel)"""
-    exigir_acesso_total(cs_session)
+    exigir_acesso_total(cs_session, request=request)
     return await WebrotaService.ranking_mensal(ano=ano, mes=mes)
 
 
@@ -538,9 +554,9 @@ async def chat_status_rede_neural():
     }
 
 @app.post("/api/chat/retreinar")
-async def chat_retreinar_rede_neural(cs_session: Optional[str] = Cookie(default=None)):
+async def chat_retreinar_rede_neural(request: Request, cs_session: Optional[str] = Cookie(default=None)):
     """Força o retreinamento da Rede Neural a partir da base atualizada de manuais"""
-    exigir_acesso_total(cs_session)
+    exigir_acesso_total(cs_session, request=request)
     neural_brain.treinar()
     return {
         "sucesso": True,
