@@ -697,7 +697,7 @@ class WebrotaService:
         force: bool = False
     ) -> Dict[str, Any]:
         """
-        Consulta o ranking de execuções do mês (comparativo Túlio x Kaio e geral).
+        Consulta o ranking de execuções do mês (desempenho Túlio e geral).
         REGRAS RÍGIDAS DE CACHE E HORÁRIO:
         - Autenticação: Utiliza ESTRITAMENTE as credenciais do .env ou variáveis do Vercel
           (WEBROTA_RANKING_USER / WEBROTA_RANKING_PASS). Não depende e não altera sessões de outros usuários.
@@ -829,8 +829,7 @@ class WebrotaService:
         end_date = f"{fim_periodo.strftime('%Y-%m-%d')}T02:59:59.000Z"
 
         tecnicos_alvo = tecnicos_custom or [
-            {"nome_exibicao": "Tulio Albuquerque Freitas", "busca": "Tulio Albuquerque Freitas (TÉCNICO WEBROTA) - Nível(3)"},
-            {"nome_exibicao": "Kaio Gabriel de Freitas", "busca": "Kaio Gabriel de Freitas (TÉCNICO WEBROTA) - Nível(3)"}
+            {"nome_exibicao": "Tulio Albuquerque Freitas", "busca": "Tulio Albuquerque Freitas (TÉCNICO WEBROTA) - Nível(3)"}
         ]
 
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {token}"}
