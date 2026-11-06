@@ -202,11 +202,14 @@
                         <div class="card-header flex-between">
                             <h4>Resultados da Consulta (<span id="count-achecar">0</span>)</h4>
                             <div class="actions-header">
-                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemAcheCar()">
+                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemAcheCar()" title="Copiar como texto organizado">
                                     <i class="fa-solid fa-copy"></i> Copiar
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="copiarCSVAcheCar()">
-                                    <i class="fa-solid fa-table"></i> Copiar CSV
+                                <button class="btn btn-sm btn-outline" onclick="copiarCSVAcheCar()" title="Copiar tabela formatada para colar direto no Excel (Ctrl+V)">
+                                    <i class="fa-solid fa-table"></i> Copiar Planilha
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="baixarCSVAcheCar()" title="Baixar arquivo .csv pronto para abrir no Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Baixar CSV
                                 </button>
                             </div>
                         </div>
@@ -272,11 +275,14 @@
                         <div class="card-header flex-between">
                             <h4>Locais de Instalação Encontrados</h4>
                             <div class="actions-header">
-                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemLocal()">
+                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemLocal()" title="Copiar como texto organizado para WhatsApp/Telegram">
                                     <i class="fa-solid fa-copy"></i> Copiar
                                 </button>
-                                <button class="btn btn-sm btn-outline" onclick="copiarCSVLocal()">
-                                    <i class="fa-solid fa-table"></i> Copiar CSV
+                                <button class="btn btn-sm btn-outline" onclick="copiarCSVLocal()" title="Copiar tabela formatada para colar direto no Excel (Ctrl+V)">
+                                    <i class="fa-solid fa-table"></i> Copiar Planilha
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="baixarCSVLocal()" title="Baixar arquivo .csv pronto para abrir no Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Baixar CSV
                                 </button>
                             </div>
                         </div>

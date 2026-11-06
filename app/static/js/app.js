@@ -748,14 +748,91 @@ function copiarMensagemAcheCar() {
 window.copiarMensagemAcheCar = copiarMensagemAcheCar;
 
 /**
- * Copia os resultados de Consulta de Placa (AcheCar) no formato de planilha (TSV com cabeçalho)
+ * Utilitário universal para copiar dados tabulares para o Clipboard.
+ * Suporta text/html (tabela HTML nativa que o Excel/Sheets cola diretamente em colunas perfeitas,
+ * imune a qualquer configuração de delimitador ou idioma do Excel)
+ * e text/plain (TSV com aspas de blindagem em cada célula e quebras de linha Windows CRLF).
  */
-function copiarCSVAcheCar() {
-    if (!acheCarResultados || acheCarResultados.length === 0) {
-        showToast('Nenhum dado consultado para copiar.', 'warning');
-        return;
+async function copiarTabelaClipboard(colunas, linhas, mensagemSucesso) {
+    // 1. Gera tabela HTML nativa (o Excel adora isso e nunca erra colunas)
+    let html = '<table border="1" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11pt;">';
+    html += '<thead><tr>';
+    colunas.forEach(c => {
+        html += `<th style="background:#0F172A;color:#FFFFFF;font-weight:bold;padding:8px 12px;border:1px solid #CBD5E1;text-align:left;">${escapeHtml(c)}</th>`;
+    });
+    html += '</tr></thead><tbody>';
+    linhas.forEach(row => {
+        html += '<tr>';
+        row.forEach(val => {
+            const v = (val === null || val === undefined) ? '-' : String(val);
+            html += `<td style="padding:6px 12px;border:1px solid #CBD5E1;">${escapeHtml(v)}</td>`;
+        });
+        html += '</tr>';
+    });
+    html += '</tbody></table>';
+
+    // 2. Gera Plain Text blindado (cada campo com aspas duplas para evitar que o Excel separe por espaços)
+    const escaparCampo = (val) => {
+        const s = (val === null || val === undefined) ? '' : String(val);
+        return `"${s.replace(/"/g, '""')}"`;
+    };
+    const plainHeader = colunas.map(escaparCampo).join('\t');
+    const plainRows = linhas.map(row => row.map(escaparCampo).join('\t')).join('\r\n');
+    const plainText = `${plainHeader}\r\n${plainRows}`;
+
+    // 3. Tenta copiar no formato avançado ClipboardItem (HTML + Plain Text)
+    if (navigator.clipboard && window.ClipboardItem) {
+        try {
+            const item = new ClipboardItem({
+                'text/html': new Blob([html], { type: 'text/html' }),
+                'text/plain': new Blob([plainText], { type: 'text/plain' })
+            });
+            await navigator.clipboard.write([item]);
+            showToast(mensagemSucesso || 'Tabela copiada! Cole no Excel com Ctrl+V.', 'success');
+            return;
+        } catch (e) {
+            console.warn('[Clipboard] Fallback para writeText:', e);
+        }
     }
 
+    // Fallback padrão
+    try {
+        await navigator.clipboard.writeText(plainText);
+        showToast(mensagemSucesso || 'Tabela copiada! Cole no Excel com Ctrl+V.', 'success');
+    } catch (err) {
+        showToast('Não foi possível copiar os dados.', 'error');
+    }
+}
+
+/**
+ * Utilitário para baixar arquivo .CSV formatado para Excel em português (BOM UTF-8, ; e CRLF)
+ */
+function baixarArquivoCSV(colunas, linhas, nomeArquivo) {
+    const escaparCSV = (val) => {
+        const s = (val === null || val === undefined) ? '' : String(val);
+        return `"${s.replace(/"/g, '""')}"`;
+    };
+    const header = colunas.map(escaparCSV).join(';');
+    const body = linhas.map(row => row.map(escaparCSV).join(';')).join('\r\n');
+    const csvContent = "\uFEFF" + `${header}\r\n${body}`;
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nomeArquivo || 'planilha.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('Download do CSV iniciado com sucesso!', 'success');
+}
+
+/**
+ * Helper para extrair matriz de dados do AcheCar
+ */
+function obterMatrizAcheCar() {
+    if (!acheCarResultados || acheCarResultados.length === 0) return null;
     const colunas = ['Placa', 'Marca / Modelo', 'Ano Fab / Modelo', 'Cor', 'Tipo / Combustível', 'Município - UF', 'Status'];
     const linhas = acheCarResultados.map(item => {
         if (item.sucesso) {
@@ -764,35 +841,55 @@ function copiarCSVAcheCar() {
             const tipoComb = `${item.tipo_veiculo || ''} - ${item.combustivel || ''}`.trim();
             const munUf = `${item.municipio || ''} - ${item.uf || ''}`.trim();
             return [
-                item.placa,
-                marcaModelo,
-                ano,
-                item.cor || '',
-                tipoComb,
-                munUf,
+                item.placa || '',
+                marcaModelo || '-',
+                ano || '-',
+                item.cor || '-',
+                tipoComb || '-',
+                munUf || '-',
                 'Encontrado'
-            ].join('\t');
+            ];
         } else {
             return [
-                item.placa,
+                item.placa || '',
                 '-',
                 '-',
                 '-',
                 '-',
                 '-',
                 item.erro || 'Falha'
-            ].join('\t');
+            ];
         }
     });
+    return { colunas, linhas };
+}
 
-    const csvFinal = [colunas.join('\t'), ...linhas].join('\n');
-    navigator.clipboard.writeText(csvFinal).then(() => {
-        showToast('Planilha (CSV) copiada para a área de transferência!', 'success');
-    }).catch(() => {
-        showToast('Não foi possível copiar os dados.', 'error');
-    });
+/**
+ * Copia os resultados de Consulta de Placa (AcheCar) no formato de planilha
+ */
+function copiarCSVAcheCar() {
+    const dados = obterMatrizAcheCar();
+    if (!dados) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+    copiarTabelaClipboard(dados.colunas, dados.linhas, 'Planilha de placas copiada! Cole no Excel (Ctrl+V).');
 }
 window.copiarCSVAcheCar = copiarCSVAcheCar;
+
+/**
+ * Baixa arquivo .csv dos resultados de Placas
+ */
+function baixarCSVAcheCar() {
+    const dados = obterMatrizAcheCar();
+    if (!dados) {
+        showToast('Nenhum dado consultado para baixar.', 'warning');
+        return;
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    baixarArquivoCSV(dados.colunas, dados.linhas, `consulta_placas_${hoje}.csv`);
+}
+window.baixarCSVAcheCar = baixarCSVAcheCar;
 
 /**
  * Copia os resultados de Local de Instalação no formato de mensagem organizada
@@ -831,14 +928,10 @@ function copiarMensagemLocal() {
 window.copiarMensagemLocal = copiarMensagemLocal;
 
 /**
- * Copia os resultados de Local de Instalação no formato de planilha (TSV com cabeçalho)
+ * Helper para extrair matriz de dados de Local de Instalação
  */
-function copiarCSVLocal() {
-    if (!localResultados || localResultados.length === 0) {
-        showToast('Nenhum dado consultado para copiar.', 'warning');
-        return;
-    }
-
+function obterMatrizLocal() {
+    if (!localResultados || localResultados.length === 0) return null;
     const colunas = ['Placa / Identificador', 'Equipamento', 'Serial', 'Local de Instalação', 'Data da OS', 'Status da OS'];
     const linhas = [];
 
@@ -849,34 +942,55 @@ function copiarCSVLocal() {
                 const dataFormatada = ser.data_execucao ? formatarDataIso(ser.data_execucao) : 'Sem data';
                 const statusText = ser.status ? `Status (${ser.status})` : 'Sem OS Válida';
                 linhas.push([
-                    item.identificador,
+                    item.identificador || '',
                     equip,
                     ser.serial || '',
                     ser.local || '',
                     dataFormatada,
                     statusText
-                ].join('\t'));
+                ]);
             });
         } else {
             linhas.push([
-                item.identificador,
+                item.identificador || '',
                 '-',
                 '-',
                 item.erro || 'Não localizado',
                 '-',
                 'Não Localizado'
-            ].join('\t'));
+            ]);
         }
     });
 
-    const csvFinal = [colunas.join('\t'), ...linhas].join('\n');
-    navigator.clipboard.writeText(csvFinal).then(() => {
-        showToast('Planilha (CSV) copiada para a área de transferência!', 'success');
-    }).catch(() => {
-        showToast('Não foi possível copiar os dados.', 'error');
-    });
+    return { colunas, linhas };
+}
+
+/**
+ * Copia os resultados de Local de Instalação no formato de planilha
+ */
+function copiarCSVLocal() {
+    const dados = obterMatrizLocal();
+    if (!dados) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+    copiarTabelaClipboard(dados.colunas, dados.linhas, 'Planilha copiada! Cole no Excel com Ctrl+V.');
 }
 window.copiarCSVLocal = copiarCSVLocal;
+
+/**
+ * Baixa arquivo .csv dos resultados de Local de Instalação
+ */
+function baixarCSVLocal() {
+    const dados = obterMatrizLocal();
+    if (!dados) {
+        showToast('Nenhum dado consultado para baixar.', 'warning');
+        return;
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    baixarArquivoCSV(dados.colunas, dados.linhas, `locais_instalacao_${hoje}.csv`);
+}
+window.baixarCSVLocal = baixarCSVLocal;
 
 function copiarTabela(tableId) {
     const table = document.getElementById(tableId);
