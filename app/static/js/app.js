@@ -37,9 +37,9 @@ function initNavigation() {
 
     const titulos = {
         'tab-home': 'Bem-vindo à Central de Suporte WebRota',
-        'tab-chat': 'Assistente Técnico IA - Manuais Suntech',
-        'tab-placa': 'Consulta de Placa (Base Pública AcheCar)',
-        'tab-chassi': 'Consulta de Chassi (Base Pública DecoderX)',
+        'tab-chat': 'Chat IA - Manuais e Assistente Técnico',
+        'tab-placa': 'Busca Placa (Base Pública AcheCar)',
+        'tab-chassi': 'Busca de Chassi (Base Pública DecoderX)',
         'tab-local': 'Rastreamento de Local de Instalação (Última OS)',
         'tab-ranking': 'Rankings de Execução de Ordens de Serviço'
     };

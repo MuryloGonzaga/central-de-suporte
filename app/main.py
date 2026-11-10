@@ -149,7 +149,7 @@ def exigir_acesso_total(cs_session: Optional[str] = None, request: Optional[Requ
     if not usuario.get("acesso_total", False):
         raise HTTPException(
             status_code=403,
-            detail="Acesso restrito. Seu usuário possui permissão de acesso apenas ao Chat IA e Consulta de Placas."
+            detail="Acesso restrito. Seu usuário possui permissão de acesso apenas ao Chat IA, Busca Placa e Busca de Chassi."
         )
     return usuario
 

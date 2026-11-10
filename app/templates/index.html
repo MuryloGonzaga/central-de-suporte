@@ -48,11 +48,11 @@
                 </button>
                 <button class="nav-item{% if aba_inicial == 'tab-placa' %} active{% endif %}" data-tab="tab-placa">
                     <i class="fa-solid fa-car-side"></i>
-                    <span>Consulta Placa (AcheCar)</span>
+                    <span>Busca Placa (AcheCar)</span>
                 </button>
                 <button class="nav-item{% if aba_inicial == 'tab-chassi' %} active{% endif %}" data-tab="tab-chassi">
                     <i class="fa-solid fa-barcode"></i>
-                    <span>Consulta Chassi (DecoderX)</span>
+                    <span>Busca de Chassi (DecoderX)</span>
                 </button>
                 {% if usuario.acesso_total %}
                 <button class="nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
@@ -134,7 +134,7 @@
                             <div class="welcome-action-card" data-goto="tab-placa">
                                 <div class="wac-icon bg-blue"><i class="fa-solid fa-car-side"></i></div>
                                 <div class="wac-info">
-                                    <h4>Consulta de Placas</h4>
+                                    <h4>Busca Placa</h4>
                                     <p>Busque dados públicos de veículos pela placa na base AcheCar.</p>
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
@@ -142,7 +142,7 @@
                             <div class="welcome-action-card" data-goto="tab-chassi">
                                 <div class="wac-icon bg-cyan"><i class="fa-solid fa-barcode"></i></div>
                                 <div class="wac-info">
-                                    <h4>Consulta de Chassi</h4>
+                                    <h4>Busca de Chassi</h4>
                                     <p>Decodifique o VIN (Marca, Modelo, Ano, Motor, Combustível, País) via DecoderX.</p>
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
@@ -552,13 +552,13 @@
             <div class="bottom-nav-icon-wrapper">
                 <i class="fa-solid fa-car-side"></i>
             </div>
-            <span>Placas</span>
+            <span>Busca Placa</span>
         </button>
         <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-chassi' %} active{% endif %}" data-tab="tab-chassi">
             <div class="bottom-nav-icon-wrapper">
                 <i class="fa-solid fa-barcode"></i>
             </div>
-            <span>Chassi</span>
+            <span>Busca Chassi</span>
         </button>
         {% if usuario.acesso_total %}
         <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
