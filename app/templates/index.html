@@ -50,6 +50,10 @@
                     <i class="fa-solid fa-car-side"></i>
                     <span>Consulta Placa (AcheCar)</span>
                 </button>
+                <button class="nav-item{% if aba_inicial == 'tab-chassi' %} active{% endif %}" data-tab="tab-chassi">
+                    <i class="fa-solid fa-barcode"></i>
+                    <span>Consulta Chassi (DecoderX)</span>
+                </button>
                 {% if usuario.acesso_total %}
                 <button class="nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">
                     <i class="fa-solid fa-map-location-dot"></i>
@@ -132,6 +136,14 @@
                                 <div class="wac-info">
                                     <h4>Consulta de Placas</h4>
                                     <p>Busque dados públicos de veículos pela placa na base AcheCar.</p>
+                                </div>
+                                <i class="fa-solid fa-chevron-right wac-arrow"></i>
+                            </div>
+                            <div class="welcome-action-card" data-goto="tab-chassi">
+                                <div class="wac-icon bg-cyan"><i class="fa-solid fa-barcode"></i></div>
+                                <div class="wac-info">
+                                    <h4>Consulta de Chassi</h4>
+                                    <p>Decodifique o VIN (Marca, Modelo, Ano, Motor, Combustível, País) via DecoderX.</p>
                                 </div>
                                 <i class="fa-solid fa-chevron-right wac-arrow"></i>
                             </div>
@@ -227,6 +239,83 @@
                                     </tr>
                                 </thead>
                                 <tbody id="tbody-achecar">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- TAB 1.1: CONSULTA CHASSI (DECODERX) -->
+                <section class="tab-pane{% if aba_inicial == 'tab-chassi' %} active{% endif %}" id="tab-chassi">
+                    <div class="card">
+                        <div class="card-header">
+                            <div>
+                                <h3><i class="fa-solid fa-barcode"></i> Decodificação de Chassi (VIN)</h3>
+                                <p class="card-subtitle">Decodifica veículos pelo número de chassi (17 caracteres) na base pública DecoderX (BlueFIX) com decodificador nativo offline. Intervalo seguro é aplicado automaticamente.</p>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-group">
+                                <label for="input-chassis-decoder">Digite ou Cole os Números de Chassi (VIN):</label>
+                                <textarea id="input-chassis-decoder" rows="4" placeholder="Exemplo:&#10;9BD17822680123456&#10;9BWCA45U1EP123456&#10;ou separe por espaços/vírgulas"></textarea>
+                                <small class="form-hint">Dica: Você pode colar múltiplos chassis de uma vez só (um por linha). O sistema valida o padrão internacional de 17 caracteres (sem I, O, Q).</small>
+                            </div>
+
+                            <div class="form-actions">
+                                <div class="btn-group">
+                                    <button class="btn btn-secondary" onclick="limparCampo('input-chassis-decoder', 'resultado-chassi')">
+                                        <i class="fa-solid fa-eraser"></i> Limpar
+                                    </button>
+                                    <button class="btn btn-primary" id="btn-consultar-chassi" onclick="consultarChassiStream()">
+                                        <i class="fa-solid fa-search"></i> Decodificar Chassi
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Barra de Progresso Chassi -->
+                            <div class="progress-bar-wrapper" id="progress-chassi" style="display: none;">
+                                <div class="progress-info-row">
+                                    <span class="progress-status-text" id="progress-chassi-text">Preparando consulta...</span>
+                                    <span class="progress-percent" id="progress-chassi-pct">0%</span>
+                                </div>
+                                <div class="progress-track">
+                                    <div class="progress-fill" id="progress-chassi-fill" style="width: 0%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Resultados Chassi -->
+                    <div class="card result-card" id="resultado-chassi" style="display: none;">
+                        <div class="card-header flex-between">
+                            <h4>Resultados da Decodificação (<span id="count-chassi">0</span>)</h4>
+                            <div class="actions-header">
+                                <button class="btn btn-sm btn-outline" onclick="copiarMensagemChassi()" title="Copiar como texto organizado">
+                                    <i class="fa-solid fa-copy"></i> Copiar
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="copiarCSVChassi()" title="Copiar tabela formatada para colar direto no Excel (Ctrl+V)">
+                                    <i class="fa-solid fa-table"></i> Copiar Planilha
+                                </button>
+                                <button class="btn btn-sm btn-outline" onclick="baixarCSVChassi()" title="Baixar arquivo .csv pronto para abrir no Excel">
+                                    <i class="fa-solid fa-file-excel"></i> Baixar CSV
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body no-padding table-responsive">
+                            <table class="data-table" id="tabela-chassi">
+                                <thead>
+                                    <tr>
+                                        <th>Chassi (VIN)</th>
+                                        <th>Fabricante / Marca</th>
+                                        <th>Modelo / Versão</th>
+                                        <th>Ano Modelo</th>
+                                        <th>Combustível</th>
+                                        <th>Motorização</th>
+                                        <th>País / Planta</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-chassi">
                                 </tbody>
                             </table>
                         </div>
@@ -464,6 +553,12 @@
                 <i class="fa-solid fa-car-side"></i>
             </div>
             <span>Placas</span>
+        </button>
+        <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-chassi' %} active{% endif %}" data-tab="tab-chassi">
+            <div class="bottom-nav-icon-wrapper">
+                <i class="fa-solid fa-barcode"></i>
+            </div>
+            <span>Chassi</span>
         </button>
         {% if usuario.acesso_total %}
         <button type="button" class="bottom-nav-item{% if aba_inicial == 'tab-local' %} active{% endif %}" data-tab="tab-local">

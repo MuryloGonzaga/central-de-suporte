@@ -39,6 +39,7 @@ function initNavigation() {
         'tab-home': 'Bem-vindo à Central de Suporte WebRota',
         'tab-chat': 'Assistente Técnico IA - Manuais Suntech',
         'tab-placa': 'Consulta de Placa (Base Pública AcheCar)',
+        'tab-chassi': 'Consulta de Chassi (Base Pública DecoderX)',
         'tab-local': 'Rastreamento de Local de Instalação (Última OS)',
         'tab-ranking': 'Rankings de Execução de Ordens de Serviço'
     };
@@ -320,6 +321,158 @@ async function consultarAcheCarStream() {
     }
 }
 window.consultarAcheCar = consultarAcheCarStream;
+
+// --------------------------------------------------------------------
+// TAB 1.1: CONSULTA CHASSI (BASE PÚBLICA DECODERX COM STREAMING & PROGRESSO)
+// --------------------------------------------------------------------
+let chassiEventSource = null;
+let chassiResultados = [];
+
+function adicionarLinhaChassi(item) {
+    const tbody = document.getElementById('tbody-chassi');
+    const countSpan = document.getElementById('count-chassi');
+    if (!tbody) return;
+
+    const tr = document.createElement('tr');
+    if (item.sucesso) {
+        const modeloVersao = [item.modelo, item.versao && item.versao !== '-' ? item.versao : ''].filter(Boolean).join(' ').trim();
+        const paisPlanta = [item.pais || 'Brasil', item.planta && item.planta !== '-' ? `(${item.planta})` : ''].filter(Boolean).join(' ').trim();
+        const statusBadge = item.origem === 'offline'
+            ? '<span class="badge badge-warning" title="Decodificado pelo padrão NBR/ISO offline"><i class="fa-solid fa-bolt"></i> Decod. Nativo</span>'
+            : '<span class="badge badge-success"><i class="fa-solid fa-check"></i> Decodificado</span>';
+
+        tr.innerHTML = `
+            <td><span class="tag-placa" style="font-family: monospace; letter-spacing: 0.5px;">${item.chassi}</span></td>
+            <td><strong>${item.marca || 'N/A'}</strong></td>
+            <td>${modeloVersao || 'Consultar modelo'}</td>
+            <td>${item.ano_modelo || 'N/A'}</td>
+            <td>${item.combustivel || '-'}</td>
+            <td>${item.motorizacao || '-'}</td>
+            <td>${paisPlanta || '-'}</td>
+            <td>${statusBadge}</td>
+        `;
+    } else {
+        tr.innerHTML = `
+            <td><span class="tag-placa" style="font-family: monospace;">${item.chassi}</span></td>
+            <td colspan="6" style="color: #F87171;">${item.erro || 'Não foi possível decodificar o chassi.'}</td>
+            <td><span class="badge badge-danger"><i class="fa-solid fa-xmark"></i> Inválido</span></td>
+        `;
+    }
+    tbody.appendChild(tr);
+
+    if (countSpan) {
+        const totalLinhas = tbody.querySelectorAll('tr').length;
+        countSpan.textContent = totalLinhas;
+    }
+}
+
+async function consultarChassiStream() {
+    const input = document.getElementById('input-chassis-decoder');
+    const btn = document.getElementById('btn-consultar-chassi');
+    const resultCard = document.getElementById('resultado-chassi');
+    const tbody = document.getElementById('tbody-chassi');
+    const countSpan = document.getElementById('count-chassi');
+
+    const progressWrapper = document.getElementById('progress-chassi');
+    const progressText = document.getElementById('progress-chassi-text');
+    const progressPct = document.getElementById('progress-chassi-pct');
+    const progressFill = document.getElementById('progress-chassi-fill');
+
+    const texto = input ? input.value.trim() : '';
+    if (!texto) {
+        showToast('Por favor, informe ao menos um número de chassi.', 'warning');
+        return;
+    }
+
+    if (chassiEventSource) {
+        chassiEventSource.close();
+        chassiEventSource = null;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Decodificando...';
+    resultCard.style.display = 'block';
+    tbody.innerHTML = '';
+    chassiResultados = [];
+    if (countSpan) countSpan.textContent = '0';
+
+    if (progressWrapper) {
+        progressWrapper.style.display = 'block';
+        if (progressFill) progressFill.style.width = '0%';
+        if (progressPct) progressPct.textContent = '0%';
+        if (progressText) progressText.textContent = 'Iniciando decodificação segura...';
+    }
+
+    setTimeout(() => {
+        resultCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 150);
+
+    try {
+        const url = `/api/consulta/chassi/stream?chassis=${encodeURIComponent(texto)}`;
+        chassiEventSource = new EventSource(url);
+
+        chassiEventSource.onmessage = (event) => {
+            if (!event.data) return;
+            try {
+                const data = JSON.parse(event.data);
+
+                if (data.tipo === 'iniciando' || data.tipo === 'inicio') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                } else if (data.tipo === 'consultando') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                    if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                    if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                } else if (data.tipo === 'progresso') {
+                    if (progressPct) progressPct.textContent = `${data.percentual}%`;
+                    if (progressFill) progressFill.style.width = `${data.percentual}%`;
+                    if (data.resultado) {
+                        chassiResultados.push(data.resultado);
+                        adicionarLinhaChassi(data.resultado);
+                    }
+                } else if (data.tipo === 'pausa') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                } else if (data.tipo === 'tentativa') {
+                    if (progressText) {
+                        progressText.innerHTML = `<i class="fa-solid fa-arrows-rotate fa-spin" style="color: #F59E0B;"></i> ${data.mensagem}`;
+                    }
+                    showToast(data.mensagem, 'warning');
+                } else if (data.tipo === 'alerta') {
+                    showToast(data.mensagem, 'warning');
+                } else if (data.tipo === 'concluido' || data.tipo === 'erro') {
+                    if (progressText) progressText.textContent = data.mensagem;
+                    if (progressPct) progressPct.textContent = '100%';
+                    if (progressFill) progressFill.style.width = '100%';
+
+                    chassiEventSource.close();
+                    chassiEventSource = null;
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-search"></i> Decodificar Chassi';
+
+                    showToast(data.mensagem, data.tipo === 'erro' ? 'error' : 'success');
+                }
+            } catch (err) {
+                console.error('Erro ao processar evento SSE Chassi:', err);
+            }
+        };
+
+        chassiEventSource.onerror = (err) => {
+            console.error('Erro na conexão SSE Chassi:', err);
+            if (chassiEventSource) {
+                chassiEventSource.close();
+                chassiEventSource = null;
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-search"></i> Decodificar Chassi';
+            if (progressText) progressText.textContent = 'Decodificação finalizada.';
+        };
+    } catch (err) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-search"></i> Decodificar Chassi';
+        showToast(`Erro ao iniciar decodificação: ${err.message}`, 'error');
+    }
+}
+window.consultarChassi = consultarChassiStream;
+window.consultarChassiStream = consultarChassiStream;
 
 // --------------------------------------------------------------------
 // TAB 2: CONSULTA LOCAL DE INSTALAÇÃO (COM PROGRESSO & BLOCO ÚNICO PARA 2 EQUIPAMENTOS)
@@ -748,6 +901,47 @@ function copiarMensagemAcheCar() {
 window.copiarMensagemAcheCar = copiarMensagemAcheCar;
 
 /**
+ * Copia os resultados de Consulta de Chassi no formato de mensagem organizada
+ */
+function copiarMensagemChassi() {
+    if (!chassiResultados || chassiResultados.length === 0) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+
+    const blocos = chassiResultados.map(item => {
+        if (item.sucesso) {
+            const modeloVersao = [item.modelo, item.versao && item.versao !== '-' ? item.versao : ''].filter(Boolean).join(' ').trim();
+            const paisPlanta = [item.pais || 'Brasil', item.planta && item.planta !== '-' ? `(${item.planta})` : ''].filter(Boolean).join(' ').trim();
+            return [
+                `🔍 *Chassi:* ${item.chassi}`,
+                `• *Fabricante / Marca:* ${item.marca || 'N/A'}`,
+                `• *Modelo / Versão:* ${modeloVersao || 'Consultar modelo'}`,
+                `• *Ano Modelo:* ${item.ano_modelo || 'N/A'}`,
+                `• *Combustível:* ${item.combustivel || '-'}`,
+                `• *Motorização:* ${item.motorizacao || '-'}`,
+                `• *País / Planta:* ${paisPlanta || '-'}`,
+                `• *Status:* ${item.origem === 'offline' ? 'Decodificado (Nativo/Offline)' : 'Decodificado com sucesso'}`
+            ].join('\n');
+        } else {
+            return [
+                `🔍 *Chassi:* ${item.chassi}`,
+                `• *Status:* Não decodificado`,
+                `• *Motivo:* ${item.erro || 'Falha na consulta'}`
+            ].join('\n');
+        }
+    });
+
+    const textoFinal = blocos.join('\n\n' + '─'.repeat(36) + '\n\n');
+    navigator.clipboard.writeText(textoFinal).then(() => {
+        showToast('Mensagem de chassis copiada com sucesso!', 'success');
+    }).catch(() => {
+        showToast('Não foi possível copiar para a área de transferência.', 'error');
+    });
+}
+window.copiarMensagemChassi = copiarMensagemChassi;
+
+/**
  * Utilitário universal para copiar dados tabulares para o Clipboard.
  * Suporta text/html (tabela HTML nativa que o Excel/Sheets cola diretamente em colunas perfeitas,
  * imune a qualquer configuração de delimitador ou idioma do Excel)
@@ -890,6 +1084,69 @@ function baixarCSVAcheCar() {
     baixarArquivoCSV(dados.colunas, dados.linhas, `consulta_placas_${hoje}.csv`);
 }
 window.baixarCSVAcheCar = baixarCSVAcheCar;
+
+/**
+ * Helper para extrair matriz de dados de Chassi
+ */
+function obterMatrizChassi() {
+    if (!chassiResultados || chassiResultados.length === 0) return null;
+    const colunas = ['Chassi (VIN)', 'Fabricante / Marca', 'Modelo / Versão', 'Ano Modelo', 'Combustível', 'Motorização', 'País / Planta', 'Status'];
+    const linhas = chassiResultados.map(item => {
+        if (item.sucesso) {
+            const modeloVersao = [item.modelo, item.versao && item.versao !== '-' ? item.versao : ''].filter(Boolean).join(' ').trim();
+            const paisPlanta = [item.pais || 'Brasil', item.planta && item.planta !== '-' ? `(${item.planta})` : ''].filter(Boolean).join(' ').trim();
+            return [
+                item.chassi || '',
+                item.marca || '-',
+                modeloVersao || '-',
+                item.ano_modelo || '-',
+                item.combustivel || '-',
+                item.motorizacao || '-',
+                paisPlanta || '-',
+                item.origem === 'offline' ? 'Decod. Nativo' : 'Decodificado'
+            ];
+        } else {
+            return [
+                item.chassi || '',
+                '-',
+                '-',
+                '-',
+                '-',
+                '-',
+                '-',
+                item.erro || 'Inválido'
+            ];
+        }
+    });
+    return { colunas, linhas };
+}
+
+/**
+ * Copia os resultados de Consulta de Chassi no formato de planilha
+ */
+function copiarCSVChassi() {
+    const dados = obterMatrizChassi();
+    if (!dados) {
+        showToast('Nenhum dado consultado para copiar.', 'warning');
+        return;
+    }
+    copiarTabelaClipboard(dados.colunas, dados.linhas, 'Planilha de chassis copiada! Cole no Excel (Ctrl+V).');
+}
+window.copiarCSVChassi = copiarCSVChassi;
+
+/**
+ * Baixa arquivo .csv dos resultados de Chassis
+ */
+function baixarCSVChassi() {
+    const dados = obterMatrizChassi();
+    if (!dados) {
+        showToast('Nenhum dado consultado para baixar.', 'warning');
+        return;
+    }
+    const hoje = new Date().toISOString().slice(0, 10);
+    baixarArquivoCSV(dados.colunas, dados.linhas, `consulta_chassis_${hoje}.csv`);
+}
+window.baixarCSVChassi = baixarCSVChassi;
 
 /**
  * Copia os resultados de Local de Instalação no formato de mensagem organizada

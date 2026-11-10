@@ -14,6 +14,7 @@ import json
 
 from app.config import APP_NAME, DEBUG_MODE
 from app.services.achecar_service import AcheCarService, extrair_placas
+from app.services.chassi_service import ChassiService, extrair_chassis
 from app.services.webrota_service import WebrotaService
 from app.services.guias_service import GuiasService
 from app.services.auth_service import AuthService
@@ -112,6 +113,9 @@ async def custom_404_handler(request: Request, exc: Exception):
 # Modelos Pydantic para requisições da API
 class PlacasRequest(BaseModel):
     placas: str = Field(..., description="Uma ou mais placas separadas por linha, espaço ou vírgula")
+
+class ChassisRequest(BaseModel):
+    chassis: str = Field(..., description="Um ou mais números de chassi (VIN) separados por linha, espaço ou vírgula")
 
 class IdentificadoresRequest(BaseModel):
     identificadores: str = Field(..., description="Uma ou mais placas ou identificadores de equipamentos/máquinas")
@@ -348,6 +352,67 @@ async def consultar_placas_lote(req: PlacasRequest):
         "sucesso": True,
         "total_validas": len(placas_validas),
         "invalidas": placas_invalidas,
+        **resultado_busca
+    }
+
+# ------------------------------------------
+# 1.1 Consulta Chassi (DecoderX / Base Pública)
+# ------------------------------------------
+
+@app.get("/api/consulta/chassi/stream")
+async def consultar_chassis_stream(chassis: str = Query(..., description="Números de chassi separados por vírgula ou linha")):
+    """Streaming SSE para decodificação de chassi com barra de progresso em tempo real."""
+    extracao = extrair_chassis(chassis)
+    chassis_validos = extracao["validas"]
+    chassis_invalidos = extracao["invalidas"]
+
+    async def event_generator():
+        if not chassis_validos:
+            payload = json.dumps({
+                "tipo": "erro",
+                "mensagem": "Nenhum número de chassi válido (17 caracteres) encontrado.",
+                "invalidas": chassis_invalidos
+            }, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+            return
+
+        async for evento in ChassiService.consultar_em_massa_stream(chassis_validos):
+            payload = json.dumps(evento, ensure_ascii=False)
+            yield f"data: {payload}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+@app.get("/api/consulta/chassi/{chassi}")
+async def consultar_chassi_unico(chassi: str):
+    """Consulta individual de chassi na base pública DecoderX"""
+    resultado = await ChassiService.consultar_chassi(chassi)
+    return resultado
+
+@app.post("/api/consulta/chassi")
+async def consultar_chassis_lote(req: ChassisRequest):
+    """Consulta em lote de chassis na base pública DecoderX"""
+    extracao = extrair_chassis(req.chassis)
+    chassis_validos = extracao["validas"]
+    chassis_invalidos = extracao["invalidas"]
+
+    if not chassis_validos:
+        return {
+            "sucesso": False,
+            "mensagem": "Nenhum chassi válido (17 caracteres) encontrado no texto informado.",
+            "invalidas": chassis_invalidos,
+            "resultados": []
+        }
+
+    resultado_busca = await ChassiService.consultar_em_massa(chassis_validos)
+
+    return {
+        "sucesso": True,
+        "total_validas": len(chassis_validos),
+        "invalidas": chassis_invalidos,
         **resultado_busca
     }
 
